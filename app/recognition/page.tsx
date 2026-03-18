@@ -11,6 +11,8 @@ import api from "@/lib/apiClient"
 import { Toast, useToast } from "@/components/Toast"
 import { useAuth } from "@/lib/authContext"
 import { addMonumentVisited, addXP } from "@/lib/authClient"
+import { saveMonument, monumentNameToId } from "@/lib/monumentStore"
+import { useLang } from "@/lib/languageContext"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RecognitionResult = Record<string, any>
@@ -43,6 +45,7 @@ export default function RecognitionPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { toast, showToast, hideToast } = useToast()
   const { user } = useAuth()
+  const { t } = useLang()
 
   // Cleanup camera on unmount
   useEffect(() => {
@@ -71,12 +74,31 @@ export default function RecognitionPage() {
       try {
         const res = await api.recognize(base64, file.name)
         setResult(res.data)
-        showToast('Monument identified! 🏛️')
-        await api.awardXP('demo_user', 25, 'MONUMENT_VISIT').catch(() => null)
-        // Save to Supabase
-        if (user && res.data.monument_name && res.data.monument_name !== 'Unknown') {
-          addMonumentVisited(user.id, res.data.monument_name).catch(() => null)
-          addXP(user.id, 25).catch(() => null)
+
+        if (
+          res.data.monument_name &&
+          res.data.monument_name !== 'Unknown' &&
+          res.data.monument_name !== null &&
+          res.data.monument_name !== ''
+        ) {
+          // Award XP
+          try {
+            await api.awardXP('demo_user', 25, 'MONUMENT_VISIT')
+            if (user) {
+              await addXP(user.id, 25)
+              await addMonumentVisited(user.id, res.data.monument_name)
+            }
+          } catch (err) { console.warn('XP award failed:', err) }
+
+          // Save recognized monument to localStorage for quiz/hunt
+          saveMonument(
+            monumentNameToId(res.data.monument_name),
+            res.data.monument_name
+          )
+
+          showToast('⚡ +25 XP for identifying ' + res.data.monument_name + '!')
+        } else {
+          showToast('Monument identified! 🏛️')
         }
       } catch {
         setResult({
@@ -127,10 +149,9 @@ export default function RecognitionPage() {
   return (
     <AppShell>
       <div className="p-4 lg:p-8 animate-fade-in">
-        {/* Header — context hint removed */}
         <div className="mb-6">
           <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[#C9A84C]">
-            Monument Recognition
+            {t('monument_recognition')}
           </h1>
         </div>
 
@@ -153,7 +174,7 @@ export default function RecognitionPage() {
                 color: activeTab === tab ? '#C9A84C' : '#C4A882'
               }}
             >
-              {tab === 'upload' ? '📂 Upload Photo' : '📷 Use Camera'}
+              {tab === 'upload' ? t('upload_photo') : t('use_camera')}
             </button>
           ))}
         </div>
@@ -188,7 +209,7 @@ export default function RecognitionPage() {
         {/* Loading */}
         {loading && (
           <div className="mt-8">
-            <p className="text-center text-[#C4A882] mb-4">Analyzing monument...</p>
+            <p className="text-center text-[#C4A882] mb-4">{t('identifying')}</p>
             <LoadingSpinner />
           </div>
         )}
@@ -197,12 +218,13 @@ export default function RecognitionPage() {
         {!loading && result?.is_unknown && (
           <div style={{ background: 'rgba(196,91,58,0.1)', border: '1px solid rgba(196,91,58,0.5)', borderRadius: 12, padding: 16, color: '#E8A85C', textAlign: 'center', margin: '24px 0' }}>
             <div style={{ fontSize: 24 }}>⚠️</div>
-            <p>Could not identify the monument. Try a clearer image.</p>
+            <p>{t('not_identified')}</p>
+            <p style={{ fontSize: '13px', marginTop: 4 }}>{t('try_clearer')}</p>
             <button
               onClick={() => setResult(null)}
               style={{ background: 'rgba(201,168,76,0.2)', border: '1px solid #C9A84C', color: '#C9A84C', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', marginTop: 8 }}
             >
-              Try Again
+              {t('try_again')}
             </button>
           </div>
         )}
@@ -212,6 +234,22 @@ export default function RecognitionPage() {
           <div className="mt-8 space-y-8 animate-slide-up">
             <ResultCard result={result} imagePreview={imagePreview} fileName={fileName} />
 
+            {/* XP badge */}
+            {result.monument_name && result.monument_name !== 'Unknown' && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center',
+                gap: '6px', padding: '4px 12px',
+                background: 'rgba(83,74,183,0.2)',
+                border: '1px solid rgba(83,74,183,0.5)',
+                borderRadius: '999px', marginBottom: '12px',
+                animation: 'pulse 2s ease infinite'
+              }}>
+                <span style={{ color: '#9B92F0', fontSize: '13px', fontWeight: 700 }}>
+                  ⚡ +25 XP earned!
+                </span>
+              </div>
+            )}
+
             {/* Listen to Emperor — audio player */}
             {result.monument_name && result.monument_name !== 'Unknown' && (
               <ListenToEmperor monumentName={result.monument_name} />
@@ -220,6 +258,33 @@ export default function RecognitionPage() {
             {/* Monument Detail Tabs — all 6 tabs */}
             {result.monument_name && result.monument_name !== 'Unknown' && (
               <MonumentDetailTabs monumentName={result.monument_name} />
+            )}
+
+            {/* Quick action buttons — Quiz & Hunt */}
+            {result.monument_name && result.monument_name !== 'Unknown' && (
+              <div style={{ display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
+                <a href="/quiz" style={{
+                  padding: '10px 18px',
+                  background: 'linear-gradient(135deg, #D4893F, #C9A84C)',
+                  color: '#0F0B1E', borderRadius: '10px',
+                  textDecoration: 'none', fontSize: '13px',
+                  fontWeight: 700, display: 'flex',
+                  alignItems: 'center', gap: '6px'
+                }}>
+                  🧠 {t('take_quiz')} — {result.monument_name.split(' ')[0]}
+                </a>
+                <a href="/hunt" style={{
+                  padding: '10px 18px',
+                  background: 'rgba(83,74,183,0.2)',
+                  border: '1px solid rgba(83,74,183,0.5)',
+                  color: '#9B92F0', borderRadius: '10px',
+                  textDecoration: 'none', fontSize: '13px',
+                  fontWeight: 700, display: 'flex',
+                  alignItems: 'center', gap: '6px'
+                }}>
+                  🗺️ {t('treasure_hunt')}
+                </a>
+              </div>
             )}
           </div>
         )}

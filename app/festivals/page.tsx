@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { AppShell } from '@/components/app-shell'
 import { ChevronDown } from 'lucide-react'
+import { useLang } from '@/lib/languageContext'
 
 interface Festival {
   name: string; month: number; day: number; location: string; state: string;
@@ -53,6 +54,7 @@ function typeColor(t: string) {
 }
 
 export default function FestivalsPage() {
+  const { t } = useLang()
   const [filter, setFilter] = useState('All')
   const [expanded, setExpanded] = useState<string | null>(null)
 
@@ -67,7 +69,7 @@ export default function FestivalsPage() {
     <AppShell>
       <div className="p-4 lg:p-8 animate-fade-in">
         <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[#C9A84C] mb-2">
-          🗓️ Heritage Festival Calendar
+          {t('festival_header')}
         </h1>
         <p style={{ color: '#C4A882', fontSize: 15, marginBottom: 20 }}>
           {FESTIVALS.length} cultural events at India&apos;s most iconic monuments
@@ -79,7 +81,7 @@ export default function FestivalsPage() {
           border: '1px solid rgba(201,168,76,0.25)', borderRadius: 16, padding: '16px 22px', marginBottom: 24
         }}>
           <div style={{ color: '#E8C97A', fontFamily: 'Georgia, serif', fontSize: 14, fontWeight: 600 }}>
-            Plan your visit around history coming alive
+            {t('festival_subtitle')}
           </div>
           <div style={{ color: '#C4A882', fontSize: 13, marginTop: 4 }}>
             30+ festivals with historical context, visitor tips, and monument connections
@@ -158,7 +160,7 @@ export default function FestivalsPage() {
                       padding: '10px 14px', borderRadius: '0 8px 8px 0', margin: '10px 0'
                     }}>
                       <div style={{ fontSize: 10, color: '#7A6E5C', fontFamily: 'monospace', letterSpacing: '0.08em', marginBottom: 4, textTransform: 'uppercase' }}>
-                        Historical Context
+                        {t('historical_context')}
                       </div>
                       <div style={{ color: '#C4A882', fontSize: 13, lineHeight: 1.6 }}>
                         {fest.historical_context}
@@ -169,7 +171,7 @@ export default function FestivalsPage() {
                       background: 'rgba(75,142,110,0.08)', border: '1px solid rgba(75,142,110,0.3)',
                       borderRadius: 10, padding: '10px 14px', margin: '10px 0'
                     }}>
-                      <span style={{ color: '#7ECDA0', fontWeight: 700, fontSize: 12 }}>💡 Visitor Tip: </span>
+                      <span style={{ color: '#7ECDA0', fontWeight: 700, fontSize: 12 }}>{t('visitor_tip')} </span>
                       <span style={{ color: '#C4A882', fontSize: 13 }}>{fest.visitor_tip}</span>
                     </div>
                     {/* Monument tags */}

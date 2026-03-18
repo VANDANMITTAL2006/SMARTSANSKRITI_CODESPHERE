@@ -12,21 +12,21 @@ import {
 } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { href: '/', icon: Home, label: 'Home' },
-  { href: '/map', icon: Map, label: 'Map' },
-  { href: '/recognition', icon: Camera, label: 'Recognition' },
-  { href: '/chat', icon: MessageCircle, label: 'Chatbot' },
-  { href: '/quiz', icon: HelpCircle, label: 'Quiz' },
-  { href: '/hunt', icon: Search, label: 'Hunt' },
-  { href: '/achievements', icon: Trophy, label: 'Achievements' },
-  { href: '/festivals', icon: Calendar, label: 'Festivals' },
-  { href: '/itinerary', icon: MapPin, label: 'Itinerary' },
+  { href: '/', icon: Home, key: 'nav_home' },
+  { href: '/map', icon: Map, key: 'nav_map' },
+  { href: '/recognition', icon: Camera, key: 'nav_recognition' },
+  { href: '/chat', icon: MessageCircle, key: 'nav_chatbot' },
+  { href: '/quiz', icon: HelpCircle, key: 'nav_quiz' },
+  { href: '/hunt', icon: Search, key: 'nav_hunt' },
+  { href: '/achievements', icon: Trophy, key: 'nav_achievements' },
+  { href: '/festivals', icon: Calendar, key: 'nav_festivals' },
+  { href: '/itinerary', icon: MapPin, key: 'nav_itinerary' },
 ]
 
 export function TopNav() {
   const pathname = usePathname()
   const { user, profile } = useAuth()
-  const { lang, setLang } = useLang()
+  const { lang, setLang, t } = useLang()
   const { userType, userConfig, setUserType } = useUser()
   const [menuOpen, setMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -144,7 +144,7 @@ export function TopNav() {
                 }}
               >
                 <item.icon size={13} />
-                <span className="nav-label">{item.label}</span>
+                <span className="nav-label">{t(item.key)}</span>
               </Link>
             )
           })}
@@ -178,7 +178,7 @@ export function TopNav() {
               fontSize: '11px', fontWeight: 700,
               cursor: 'pointer', whiteSpace: 'nowrap'
             }}>
-              {userConfig.icon} {userType === 'student' ? 'Student' : 'Tourist'}
+              {userConfig.icon} {userType === 'student' ? t('student') : t('tourist')}
             </button>
           )}
 
@@ -252,11 +252,11 @@ export function TopNav() {
                   </div>
                   <Link href="/achievements" onClick={() => setUserMenuOpen(false)}
                     style={{ display: 'block', padding: '7px 10px', color: '#C4A882', textDecoration: 'none', fontSize: '13px', borderRadius: '8px' }}>
-                    🏅 Achievements
+                    {t('my_achievements')}
                   </Link>
                   <Link href="/itinerary" onClick={() => setUserMenuOpen(false)}
                     style={{ display: 'block', padding: '7px 10px', color: '#C4A882', textDecoration: 'none', fontSize: '13px', borderRadius: '8px' }}>
-                    🗺️ My Itinerary
+                    {t('my_itinerary')}
                   </Link>
                   <button onClick={async () => {
                     setUserMenuOpen(false)
@@ -268,7 +268,7 @@ export function TopNav() {
                     background: 'rgba(196,91,58,0.12)', border: 'none', borderRadius: '8px',
                     color: '#E8A85C', fontSize: '13px', cursor: 'pointer', marginTop: '4px'
                   }}>
-                    🚪 Sign Out
+                    {t('sign_out')}
                   </button>
                 </div>
               )}
@@ -346,7 +346,7 @@ export function TopNav() {
                     border: isActive ? '1px solid rgba(201,168,76,0.3)' : '1px solid rgba(255,255,255,0.04)',
                   }}>
                   <item.icon size={14} />
-                  {item.label}
+                  {t(item.key)}
                 </Link>
               )
             })}
@@ -373,7 +373,7 @@ export function TopNav() {
                 border: '1px solid rgba(196,91,58,0.3)',
                 color: '#E8A85C', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
               }}>
-                🚪 Sign Out
+                {t('sign_out')}
               </button>
             )}
           </div>

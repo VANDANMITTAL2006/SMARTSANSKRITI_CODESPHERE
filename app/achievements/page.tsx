@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { AppShell } from '@/components/app-shell'
 import { useAuth } from '@/lib/authContext'
 import api from '@/lib/apiClient'
+import { useLang } from '@/lib/languageContext'
 
 type BadgeId = 'first_steps' | 'explorer' | 'quiz_master' | 'hunter' | 'day_tripper'
 
@@ -41,6 +42,7 @@ function LoadingSpinner() {
 
 export default function AchievementsPage() {
   const { user, profile } = useAuth()
+  const { t } = useLang()
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'badges' | 'leaderboard'>('badges')
@@ -75,17 +77,17 @@ export default function AchievementsPage() {
       <div style={{ padding: '24px', maxWidth: 860, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ marginBottom: '1.5rem' }}>
-          <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '2rem', color: '#C9A84C', fontWeight: 700, margin: '0 0 0.4rem' }}>🏆 Explorer Hub</h1>
-          <p style={{ color: '#C4A882', margin: 0 }}>Your achievements, badges and global leaderboard</p>
+          <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '2rem', color: '#C9A84C', fontWeight: 700, margin: '0 0 0.4rem' }}>{t('explorer_hub')}</h1>
+          <p style={{ color: '#C4A882', margin: 0 }}>{t('achievements_subtitle')}</p>
         </div>
 
         {/* XP Progress card */}
         <div style={{ background: 'linear-gradient(135deg, rgba(28,22,56,0.95), rgba(20,15,45,0.9))', border: '1px solid rgba(201,168,76,0.4)', borderRadius: '18px', padding: '1.5rem', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
             <div>
-              <div style={{ color: '#7A6E5C', fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px' }}>Explorer Progress</div>
+              <div style={{ color: '#7A6E5C', fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px' }}>{t('explorer_progress')}</div>
               <div style={{ fontFamily: 'Georgia, serif', fontSize: '1.3rem', color: '#C9A84C', fontWeight: 700 }}>
-                {totalXp >= 1000 ? '👑 Sanskriti Legend' : totalXp >= 300 ? '🎓 Cultural Pro' : totalXp >= 150 ? '🏛️ Heritage Explorer' : '🌱 Beginner Explorer'}
+                {totalXp >= 1000 ? t('level_legend') : totalXp >= 300 ? t('level_cultural') : totalXp >= 150 ? t('level_heritage') : t('level_beginner')}
               </div>
             </div>
             <div style={{ padding: '8px 18px', background: 'rgba(83,74,183,0.2)', border: '1px solid rgba(83,74,183,0.4)', borderRadius: '999px', color: '#9B92F0', fontSize: '20px', fontWeight: 800 }}>
@@ -97,15 +99,15 @@ export default function AchievementsPage() {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#7A6E5C' }}>
             <span>0 XP</span>
-            <span style={{ color: '#C9A84C', fontWeight: 600 }}>{xpPct}% to max level</span>
+            <span style={{ color: '#C9A84C', fontWeight: 600 }}>{xpPct}{t('to_max_level')}</span>
             <span>1000 XP</span>
           </div>
           {/* Stats row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginTop: '16px' }}>
             {[
-              { label: 'Monuments Visited', value: profile?.monuments_visited?.length || 0, icon: '🏛️' },
-              { label: 'Badges Earned', value: earned.length, icon: '🏅' },
-              { label: 'Leaderboard Rank', value: currentUserRank > 0 ? `#${currentUserRank}` : '—', icon: '📊' },
+              { label: t('monuments_visited'), value: profile?.monuments_visited?.length || 0, icon: '🏛️' },
+              { label: t('badges_earned'), value: earned.length, icon: '🏅' },
+              { label: t('leaderboard_rank'), value: currentUserRank > 0 ? `#${currentUserRank}` : '—', icon: '📊' },
             ].map((stat, i) => (
               <div key={i} style={{ background: 'rgba(15,11,30,0.5)', borderRadius: '12px', padding: '12px', textAlign: 'center', border: '1px solid rgba(201,168,76,0.1)' }}>
                 <div style={{ fontSize: '20px', marginBottom: '4px' }}>{stat.icon}</div>
@@ -125,7 +127,7 @@ export default function AchievementsPage() {
               color: activeTab === tab ? '#0F0B1E' : '#C4A882',
               fontWeight: 700, fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s ease', textTransform: 'capitalize'
             }}>
-              {tab === 'badges' ? '🏅 My Badges' : '🏆 Leaderboard'}
+              {tab === 'badges' ? t('my_badges') : t('leaderboard')}
             </button>
           ))}
         </div>
@@ -150,13 +152,13 @@ export default function AchievementsPage() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                         <div style={{ fontWeight: 800, color: isEarned ? '#C9A84C' : '#6B7280', fontSize: '15px' }}>{badge.title}</div>
                         <div style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: isEarned ? 'rgba(75,155,142,0.2)' : 'rgba(28,22,56,0.8)', border: isEarned ? '1px solid #4B9B8E' : '1px solid rgba(107,114,128,0.3)', color: isEarned ? '#4B9B8E' : '#6B7280' }}>
-                          {isEarned ? '✅ Earned' : '🔒 Locked'}
+                          {isEarned ? t('badge_earned') : t('badge_locked')}
                         </div>
                       </div>
                       <div style={{ color: isEarned ? '#C4A882' : '#6B7280', fontSize: '12px', marginBottom: '6px' }}>
-                        {isEarned ? '🎉 Achievement unlocked!' : badge.hint}
+                        {isEarned ? t('badge_unlocked') : badge.hint}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#534AB7', fontWeight: 600 }}>Requires {badge.xpRequired} XP{isEarned && ' ✓'}</div>
+                      <div style={{ fontSize: '11px', color: '#534AB7', fontWeight: 600 }}>{t('requires_xp')} {badge.xpRequired} {t('xp')}{isEarned && ' ✓'}</div>
                     </div>
                   </div>
                 )
@@ -166,9 +168,9 @@ export default function AchievementsPage() {
             {/* Monuments visited */}
             {(profile?.monuments_visited?.length ?? 0) > 0 && (
               <div style={{ marginTop: '1.5rem' }}>
-                <h3 style={{ color: '#C9A84C', fontFamily: 'Georgia, serif', fontSize: '1.1rem', margin: '0 0 1rem' }}>🗺️ Monuments Explored</h3>
+                <h3 style={{ color: '#C9A84C', fontFamily: 'Georgia, serif', fontSize: '1.1rem', margin: '0 0 1rem' }}>{t('monuments_explored')}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
-                  {profile.monuments_visited.map((m: string) => (
+                  {profile?.monuments_visited?.map((m: string) => (
                     <div key={m} style={{ padding: '8px 14px', background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: '10px', color: '#E8C97A', fontSize: '13px', fontWeight: 600 }}>✅ {m}</div>
                   ))}
                 </div>
@@ -182,7 +184,7 @@ export default function AchievementsPage() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
               <button onClick={() => fetchLeaderboard(true)} disabled={refreshing} style={{ padding: '8px 16px', background: 'rgba(75,155,142,0.15)', border: '1px solid rgba(75,155,142,0.4)', borderRadius: '10px', color: '#4B9B8E', fontSize: '13px', fontWeight: 700, cursor: refreshing ? 'not-allowed' : 'pointer', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {refreshing ? '⏳ Refreshing...' : '🔄 Refresh'}
+                {refreshing ? t('refreshing') : t('refresh')}
               </button>
             </div>
 
@@ -202,7 +204,7 @@ export default function AchievementsPage() {
                             {entry.user_id[0].toUpperCase()}
                           </div>
                           <div style={{ color: style.color, fontSize: '12px', fontWeight: 700, textAlign: 'center', marginBottom: '4px', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {entry.user_id}{isCurrentUser && ' (You)'}
+                            {entry.user_id}{isCurrentUser && ` ${t('you')}`}
                           </div>
                           <div style={{ color: '#C4A882', fontSize: '11px', marginBottom: '8px', fontWeight: 600 }}>⚡ {entry.total_xp} XP</div>
                           <div style={{ width: '100%', height: style.height, background: `linear-gradient(180deg, ${style.color}33, ${style.color}11)`, border: `1px solid ${style.color}44`, borderRadius: '10px 10px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 800, color: style.color }}>{style.label}</div>
@@ -228,7 +230,7 @@ export default function AchievementsPage() {
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ color: isCurrentUser ? '#C9A84C' : '#F5E6D3', fontWeight: isCurrentUser ? 700 : 500, fontSize: '14px' }}>
-                            {entry.user_id}{isCurrentUser && <span style={{ marginLeft: '6px', fontSize: '11px', color: '#C9A84C', fontWeight: 600 }}>(You)</span>}
+                            {entry.user_id}{isCurrentUser && <span style={{ marginLeft: '6px', fontSize: '11px', color: '#C9A84C', fontWeight: 600 }}>{t('you')}</span>}
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
@@ -244,7 +246,7 @@ export default function AchievementsPage() {
 
                 {currentUserRank > 0 && (
                   <div style={{ textAlign: 'center', marginTop: '1rem', color: '#C4A882', fontSize: '13px' }}>
-                    You are ranked <span style={{ color: '#C9A84C', fontWeight: 700 }}>#{currentUserRank}</span> out of {leaderboard.length} explorers
+                    {t('you_are_ranked')} <span style={{ color: '#C9A84C', fontWeight: 700 }}>#{currentUserRank}</span> {t('out_of')} {leaderboard.length} {t('explorers')}
                   </div>
                 )}
               </>

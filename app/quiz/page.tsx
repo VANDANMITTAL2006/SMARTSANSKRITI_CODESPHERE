@@ -8,6 +8,8 @@ import api from "@/lib/apiClient"
 import { Toast, useToast } from "@/components/Toast"
 import { useAuth } from "@/lib/authContext"
 import { saveQuizScore, addXP } from "@/lib/authClient"
+import { useLang } from "@/lib/languageContext"
+import { getMonument, saveMonument, clearMonument } from "@/lib/monumentStore"
 
 interface Question {
   id: string
@@ -39,6 +41,7 @@ function LoadingSpinner() {
 }
 
 export default function QuizPage() {
+  const lastMonument = getMonument()
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
@@ -48,11 +51,12 @@ export default function QuizPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [answering, setAnswering] = useState(false)
-  const [monumentId, setMonumentId] = useState('taj-mahal')
+  const [monumentId, setMonumentId] = useState(lastMonument?.id || 'taj-mahal')
   const [monuments, setMonuments] = useState<Monument[]>([])
-  const [monumentSelected, setMonumentSelected] = useState(false)
+  const [monumentSelected, setMonumentSelected] = useState(!!lastMonument)
   const { toast, showToast, hideToast } = useToast()
   const { user } = useAuth()
+  const { t } = useLang()
 
   // Load monument list for selector
   useEffect(() => {
@@ -138,7 +142,7 @@ export default function QuizPage() {
       <AppShell>
         <div style={{ padding: 24 }}>
           <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 32, color: '#C9A84C', fontWeight: 700 }}>
-            Heritage Quiz
+            {t('heritage_quiz')}
           </h1>
           <div style={{
             marginTop: 48, textAlign: 'center',
@@ -148,14 +152,20 @@ export default function QuizPage() {
           }}>
             <div style={{ fontSize: 72, marginBottom: 16 }}>🏛️</div>
             <h2 style={{ color: '#C9A84C', fontFamily: 'Georgia,serif', fontSize: 26, margin: '0 0 12px' }}>
-              Select a Monument First
+              {t('select_monument_first')}
             </h2>
             <p style={{ color: '#C4A882', fontSize: 16, marginBottom: 28, lineHeight: 1.6 }}>
-              Scan a monument using the Recognition page or choose one below to start your quiz
+              {t('scan_monument_msg')}
             </p>
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <select
-                onChange={e => { setMonumentId(e.target.value); setMonumentSelected(true) }}
+                onChange={e => {
+                  const selectedId = e.target.value
+                  const selectedName = monumentList.find(m => m.id === selectedId)?.name || selectedId
+                  setMonumentId(selectedId)
+                  setMonumentSelected(true)
+                  saveMonument(selectedId, selectedName)
+                }}
                 defaultValue=""
                 style={{
                   padding: '12px 40px 12px 16px',
@@ -167,7 +177,7 @@ export default function QuizPage() {
                   appearance: 'none',
                 }}
               >
-                <option value="" disabled>Choose a monument...</option>
+                <option value="" disabled>{t('choose_monument')}</option>
                 {monumentList.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
               <ChevronDown style={{ position: 'absolute', right: 12, top: 14, width: 16, height: 16, color: '#C9A84C', pointerEvents: 'none' }} />
@@ -176,6 +186,13 @@ export default function QuizPage() {
               <a href="/recognition" style={{ color: '#4B9B8E', textDecoration: 'none', fontSize: 14 }}>
                 📷 Or scan a monument photo →
               </a>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <p style={{ color: '#C4A882', fontSize: 14 }}>
+                💡 Tip: Identify a monument using the{' '}
+                <a href="/recognition" style={{ color: '#4B9B8E' }}>Recognition page</a>
+                {' '}and the quiz will auto-load!
+              </p>
             </div>
           </div>
         </div>
@@ -187,7 +204,7 @@ export default function QuizPage() {
     return (
       <AppShell>
         <div className="p-4 lg:p-8">
-          <h1 className="font-serif text-2xl lg:text-3xl font-bold text-[#C9A84C] mb-6">Heritage Quiz</h1>
+          <h1 className="font-serif text-2xl lg:text-3xl font-bold text-[#C9A84C] mb-6">{t('heritage_quiz')}</h1>
           <LoadingSpinner />
         </div>
       </AppShell>
@@ -198,11 +215,11 @@ export default function QuizPage() {
     return (
       <AppShell>
         <div className="p-4 lg:p-8">
-          <h1 className="font-serif text-2xl lg:text-3xl font-bold text-[#C9A84C] mb-6">Heritage Quiz</h1>
+          <h1 className="font-serif text-2xl lg:text-3xl font-bold text-[#C9A84C] mb-6">{t('heritage_quiz')}</h1>
           <div style={{ background: 'rgba(196,91,58,0.1)', border: '1px solid rgba(196,91,58,0.5)', borderRadius: 12, padding: 16, color: '#E8A85C', textAlign: 'center', margin: '16px 0' }}>
             <div style={{ fontSize: 24 }}>⚠️</div>
             <p>Could not connect to server.</p>
-            <button onClick={() => fetchQuestions(monumentId)} style={{ background: 'rgba(201,168,76,0.2)', border: '1px solid #C9A84C', color: '#C9A84C', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', marginTop: 8 }}>Try Again</button>
+            <button onClick={() => fetchQuestions(monumentId)} style={{ background: 'rgba(201,168,76,0.2)', border: '1px solid #C9A84C', color: '#C9A84C', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', marginTop: 8 }}>{t('try_again')}</button>
           </div>
         </div>
       </AppShell>
@@ -216,17 +233,52 @@ export default function QuizPage() {
       <div className="p-4 lg:p-8 animate-fade-in">
         {!finished ? (
           <>
+            {/* Auto-loaded monument banner */}
+            {lastMonument && (
+              <div style={{
+                background: 'rgba(75,155,142,0.1)',
+                border: '1px solid rgba(75,155,142,0.4)',
+                borderRadius: '12px', padding: '12px 16px',
+                marginBottom: '1.5rem',
+                display: 'flex', alignItems: 'center',
+                justifyContent: 'space-between', gap: '12px'
+              }}>
+                <div style={{ color: '#4B9B8E', fontSize: '14px' }}>
+                  🏛️ <strong>Auto-loaded:</strong> {lastMonument.name} — recognized just now
+                </div>
+                <button
+                  onClick={() => {
+                    setMonumentSelected(false)
+                    setMonumentId('')
+                    clearMonument()
+                  }}
+                  style={{
+                    background: 'none', border: 'none',
+                    color: '#7A6E5C', cursor: 'pointer',
+                    fontSize: '12px', flexShrink: 0
+                  }}
+                >
+                  ✕ Change
+                </button>
+              </div>
+            )}
             {/* Header with monument selector */}
             <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
               <div>
-                <h1 className="font-serif text-2xl lg:text-3xl font-bold text-[#C9A84C]">Heritage Quiz</h1>
+                <h1 className="font-serif text-2xl lg:text-3xl font-bold text-[#C9A84C]">{t('heritage_quiz')}</h1>
                 <span className="inline-block mt-2 px-3 py-1 bg-[#D4893F]/20 text-[#D4893F] text-xs font-bold uppercase rounded-full">Medium</span>
               </div>
               {/* Monument selector */}
               <div className="relative">
                 <select
                   value={monumentId}
-                  onChange={e => { setMonumentId(e.target.value); setMonumentSelected(true) }}
+                  onChange={e => {
+                    const selectedId = e.target.value
+                    const selectedName = monuments.find(m => m.id === selectedId)?.name || selectedId
+                    setMonumentId(selectedId)
+                    setMonumentSelected(true)
+                    saveMonument(selectedId, selectedName)
+                  }}
                   className="appearance-none pl-3 pr-8 py-2 bg-[#1C1638] border border-[#C9A84C]/40 text-[#C9A84C] text-sm rounded-lg focus:outline-none focus:border-[#C9A84C] cursor-pointer"
                 >
                   {monuments.length > 0
@@ -240,13 +292,13 @@ export default function QuizPage() {
 
             {/* Progress */}
             <div className="flex items-center justify-between mb-8">
-              <p className="text-[#F5E6D3]">Question {currentIndex + 1} of {questions.length}</p>
+              <p className="text-[#F5E6D3]">{t('question_of')} {currentIndex + 1} {t('of')} {questions.length}</p>
               <div className="flex gap-2">
                 {questions.map((_, idx) => (
                   <div key={idx} className={`w-3 h-3 rounded-full transition-all ${idx <= currentIndex ? "bg-[#C9A84C]" : "bg-[#1C1638]"}`} />
                 ))}
               </div>
-              <span className="px-3 py-1 bg-[#534AB7]/20 text-[#534AB7] text-sm rounded-full animate-xp-pulse">⚡ +{xpEarned} XP earned</span>
+              <span className="px-3 py-1 bg-[#534AB7]/20 text-[#534AB7] text-sm rounded-full animate-xp-pulse">⚡ +{xpEarned} {t('xp_earned')}</span>
             </div>
 
             {/* Question card */}
@@ -281,7 +333,7 @@ export default function QuizPage() {
             {selectedAnswer !== null && selectedAnswer === question?.correct_index && (
               <div className="p-4 bg-[#4B9B8E]/10 border-l-4 border-[#4B9B8E] rounded-r-lg mb-6 animate-fade-in">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-[#4B9B8E]">Correct!</span>
+                  <span className="font-bold text-[#4B9B8E]">{t('correct')}</span>
                   <span className="px-2 py-1 bg-[#534AB7]/20 text-[#534AB7] text-xs rounded-full animate-xp-pulse">⚡ +10 XP</span>
                 </div>
               </div>
@@ -290,12 +342,12 @@ export default function QuizPage() {
         ) : (
           <div className="max-w-md mx-auto text-center animate-slide-up">
             <div className="text-6xl mb-4">🎉</div>
-            <h2 className="font-serif text-4xl font-bold text-[#C9A84C] mb-2">Score: {score} out of {questions.length}</h2>
+            <h2 className="font-serif text-4xl font-bold text-[#C9A84C] mb-2">{t('score')}: {score} {t('of')} {questions.length}</h2>
             <div className="inline-block px-4 py-2 bg-[#534AB7]/20 rounded-full mb-4 animate-xp-pulse">
-              <span className="text-[#534AB7] font-bold">⚡ +{xpEarned} XP earned</span>
+              <span className="text-[#534AB7] font-bold">⚡ +{xpEarned} {t('xp_earned')}</span>
             </div>
             <div className="flex items-center justify-center gap-4 mb-6 text-[#C4A882]">
-              <div className="flex items-center gap-2"><Clock className="w-5 h-5" /><span>Quiz Complete</span></div>
+              <div className="flex items-center gap-2"><Clock className="w-5 h-5" /><span>{t('quiz_complete')}</span></div>
             </div>
             <div className="glass-card rounded-xl p-4 inline-block mb-6">
               <Star className="w-12 h-12 text-[#C9A84C] mx-auto mb-2" />
@@ -303,7 +355,7 @@ export default function QuizPage() {
             </div>
             <div className="glass-card rounded-xl p-4 mb-8">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[#C4A882] flex items-center gap-2"><BarChart2 className="w-5 h-5" />Accuracy</span>
+                <span className="text-[#C4A882] flex items-center gap-2"><BarChart2 className="w-5 h-5" />{t('accuracy')}</span>
                 <span className="text-[#C9A84C] font-bold">{questions.length > 0 ? Math.round((score / questions.length) * 100) : 0}%</span>
               </div>
               <div className="h-3 bg-[#1C1638] rounded-full overflow-hidden">
@@ -311,8 +363,8 @@ export default function QuizPage() {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={handlePlayAgain} className="px-6 py-3 border border-[#C9A84C]/50 text-[#C9A84C] font-semibold rounded-xl transition-all duration-300 hover:bg-[#C9A84C]/10">Play Again</button>
-              <Link href="/achievements" className="px-6 py-3 gold-gradient text-[#0F0B1E] font-semibold rounded-xl transition-all duration-300 hover:scale-105">View Leaderboard</Link>
+              <button onClick={handlePlayAgain} className="px-6 py-3 border border-[#C9A84C]/50 text-[#C9A84C] font-semibold rounded-xl transition-all duration-300 hover:bg-[#C9A84C]/10">{t('play_again')}</button>
+              <Link href="/achievements" className="px-6 py-3 gold-gradient text-[#0F0B1E] font-semibold rounded-xl transition-all duration-300 hover:scale-105">{t('view_leaderboard')}</Link>
             </div>
           </div>
         )}

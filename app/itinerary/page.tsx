@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { AppShell } from '@/components/app-shell'
+import { useLang } from '@/lib/languageContext'
 
 const INDIA_CITIES = [
   { city: 'Agra', state: 'Uttar Pradesh', emoji: '🕌', highlights: 'Taj Mahal, Agra Fort, Fatehpur Sikri', monuments: ['taj-mahal', 'agra-fort', 'fatehpur-sikri'] },
@@ -30,6 +31,7 @@ interface Itinerary { city?: string; monument?: string; days: Day[] }
 const ACCENT_COLORS = ['#C9A84C', '#D4893F', '#4B9B8E', '#534AB7', '#C45B3A']
 
 export default function ItineraryPage() {
+  const { t } = useLang()
   const [selectedCity, setSelectedCity] = useState('')
   const [days, setDays] = useState(3)
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
@@ -95,15 +97,15 @@ export default function ItineraryPage() {
       <div style={{ padding: '24px', maxWidth: 860, margin: '0 auto' }}>
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '2rem', color: '#C9A84C', fontWeight: 700, margin: '0 0 0.5rem' }}>
-            🗺️ AI City Itinerary Planner
+            {t('itinerary_title')}
           </h1>
-          <p style={{ color: '#C4A882', margin: 0 }}>Choose any city in India and get a personalised heritage travel plan</p>
+          <p style={{ color: '#C4A882', margin: 0 }}>{t('itinerary_subtitle')}</p>
         </div>
 
         <div style={{ background: 'rgba(28,22,56,0.9)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: '18px', padding: '1.5rem', marginBottom: '1.5rem' }}>
           {/* Days selector */}
           <div style={{ marginBottom: '1.2rem' }}>
-            <label style={{ display: 'block', color: '#C4A882', fontSize: '13px', marginBottom: '8px', fontWeight: 600 }}>Number of Days</label>
+            <label style={{ display: 'block', color: '#C4A882', fontSize: '13px', marginBottom: '8px', fontWeight: 600 }}>{t('num_days')}</label>
             <div style={{ display: 'flex', gap: '8px' }}>
               {[1,2,3,4,5].map(d => (
                 <button key={d} onClick={() => setDays(d)} style={{
@@ -115,21 +117,21 @@ export default function ItineraryPage() {
                   transition: 'all 0.2s ease'
                 }}>{d}</button>
               ))}
-              <span style={{ color: '#7A6E5C', fontSize: '13px', alignSelf: 'center', marginLeft: '4px' }}>{days === 1 ? 'day' : 'days'}</span>
+              <span style={{ color: '#7A6E5C', fontSize: '13px', alignSelf: 'center', marginLeft: '4px' }}>{days === 1 ? t('day') : t('days_word')}</span>
             </div>
           </div>
 
           {/* City search */}
           <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', color: '#C4A882', fontSize: '13px', marginBottom: '8px', fontWeight: 600 }}>Search City</label>
-            <input type="text" placeholder="Search city or state..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+            <label style={{ display: 'block', color: '#C4A882', fontSize: '13px', marginBottom: '8px', fontWeight: 600 }}>{t('search_city')}</label>
+            <input type="text" placeholder={t('search_city_placeholder')} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               style={{ width: '100%', padding: '10px 14px', background: 'rgba(15,11,30,0.8)', border: '1px solid rgba(201,168,76,0.25)', borderRadius: '10px', color: '#F5E6D3', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} />
           </div>
 
           {/* City grid */}
           <div style={{ marginBottom: '1.2rem' }}>
             <label style={{ display: 'block', color: '#C4A882', fontSize: '13px', marginBottom: '8px', fontWeight: 600 }}>
-              Select City {selectedCity && `— ${selectedCity} selected ✓`}
+              {t('select_city')} {selectedCity && `— ${selectedCity} ${t('selected')}`}
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '8px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
               {filteredCities.map(cityData => {
@@ -153,7 +155,7 @@ export default function ItineraryPage() {
           {/* Selected city highlights */}
           {selectedCityData && (
             <div style={{ padding: '10px 14px', marginBottom: '1.2rem', background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '10px' }}>
-              <div style={{ color: '#E8C97A', fontSize: '13px', fontWeight: 700, marginBottom: '3px' }}>{selectedCityData.emoji} {selectedCityData.city} Highlights</div>
+              <div style={{ color: '#E8C97A', fontSize: '13px', fontWeight: 700, marginBottom: '3px' }}>{selectedCityData.emoji} {selectedCityData.city} {t('city_highlights')}</div>
               <div style={{ color: '#C4A882', fontSize: '12px' }}>{selectedCityData.highlights}</div>
             </div>
           )}
@@ -166,7 +168,7 @@ export default function ItineraryPage() {
             border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 700,
             cursor: (!selectedCity || loading) ? 'not-allowed' : 'pointer', transition: 'all 0.2s ease'
           }}>
-            {loading ? '⏳ Crafting your perfect itinerary...' : !selectedCity ? 'Select a city to generate itinerary' : `✨ Generate ${days}-Day ${selectedCity} Itinerary`}
+            {loading ? t('generating') : !selectedCity ? t('select_city_first') : `✨ ${t('generate_itinerary')} — ${days} ${t('days_word')} ${selectedCity}`}
           </button>
         </div>
 
@@ -176,7 +178,7 @@ export default function ItineraryPage() {
           <div style={{ textAlign: 'center', padding: '3rem' }}>
             <div style={{ width: 48, height: 48, margin: '0 auto 1rem', border: '4px solid rgba(201,168,76,0.2)', borderTop: '4px solid #C9A84C', borderRadius: '50%', animation: 'spin 1s linear infinite' }}/>
             <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-            <p style={{ color: '#C4A882', margin: 0 }}>AI is planning your {selectedCity} heritage journey...</p>
+            <p style={{ color: '#C4A882', margin: 0 }}>{t('planning_journey')}</p>
           </div>
         )}
 
@@ -185,7 +187,7 @@ export default function ItineraryPage() {
             <div style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: '14px', padding: '1.2rem 1.5rem', marginBottom: '1.5rem', textAlign: 'center' }}>
               <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{selectedCityData?.emoji || '🗺️'}</div>
               <h2 style={{ fontFamily: 'Georgia, serif', color: '#C9A84C', margin: '0 0 0.3rem', fontSize: '1.4rem' }}>
-                {days}-Day {selectedCity} Heritage Itinerary
+                {days}-{t('day')} {selectedCity} {t('heritage_itinerary')}
               </h2>
               <p style={{ color: '#C4A882', margin: 0, fontSize: '0.88rem' }}>{selectedCityData?.highlights}</p>
             </div>
@@ -215,7 +217,7 @@ export default function ItineraryPage() {
               </div>
             ))}
 
-            <div style={{ textAlign: 'center', padding: '1rem', color: '#7A6E5C', fontSize: '12px' }}>❖ ─── Generated by Sanskriti AI ─── ❖</div>
+            <div style={{ textAlign: 'center', padding: '1rem', color: '#7A6E5C', fontSize: '12px' }}>{t('generated_by')}</div>
           </div>
         )}
       </div>

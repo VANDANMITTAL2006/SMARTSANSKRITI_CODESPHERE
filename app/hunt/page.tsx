@@ -5,6 +5,8 @@ import { AppShell } from "@/components/app-shell"
 import { MapPin, Check, Trophy, ChevronDown } from "lucide-react"
 import api from "@/lib/apiClient"
 import { Toast, useToast } from "@/components/Toast"
+import { useLang } from "@/lib/languageContext"
+import { getMonument, saveMonument, clearMonument } from "@/lib/monumentStore"
 
 interface Clue {
   step: number
@@ -44,6 +46,7 @@ function LoadingSpinner() {
 }
 
 export default function HuntPage() {
+  const lastMonument = getMonument()
   const [clue, setClue] = useState<Clue | null>(null)
   const [showPuzzle, setShowPuzzle] = useState(false)
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
@@ -53,10 +56,11 @@ export default function HuntPage() {
   const [error, setError] = useState<string | null>(null)
   const [xpEarned, setXpEarned] = useState(0)
   const [verifying, setVerifying] = useState(false)
-  const [monumentSelected, setMonumentSelected] = useState(false)
-  const [huntMonumentId, setHuntMonumentId] = useState('taj-mahal')
+  const [monumentSelected, setMonumentSelected] = useState(!!lastMonument)
+  const [huntMonumentId, setHuntMonumentId] = useState(lastMonument?.id || 'taj-mahal')
   const [monuments, setMonuments] = useState<{id: string, name: string}[]>([])
   const { toast, showToast, hideToast } = useToast()
+  const { t } = useLang()
 
   // Load monument list
   useEffect(() => {
@@ -143,7 +147,7 @@ export default function HuntPage() {
       <AppShell>
         <div style={{ padding: 24 }}>
           <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 32, color: '#C9A84C', fontWeight: 700 }}>
-            🗺️ Treasure Hunt
+            {t('treasure_hunt')}
           </h1>
           <div style={{
             marginTop: 48, textAlign: 'center',
@@ -154,16 +158,19 @@ export default function HuntPage() {
           }}>
             <div style={{ fontSize: 72, marginBottom: 16 }}>🗺️</div>
             <h2 style={{ color: '#C9A84C', fontFamily: 'Georgia,serif', fontSize: 26, margin: '0 0 12px' }}>
-              Select a Monument to Hunt
+              {t('select_monument_hunt')}
             </h2>
             <p style={{ color: '#C4A882', fontSize: 16, marginBottom: 28, lineHeight: 1.6 }}>
-              Choose a monument to begin your treasure hunt adventure
+              {t('choose_monument_hunt')}
             </p>
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <select
                 onChange={e => {
-                  setHuntMonumentId(e.target.value)
+                  const selectedId = e.target.value
+                  const selectedName = monumentList.find(m => m.id === selectedId)?.name || selectedId
+                  setHuntMonumentId(selectedId)
                   setMonumentSelected(true)
+                  saveMonument(selectedId, selectedName)
                 }}
                 defaultValue=""
                 style={{
@@ -176,7 +183,7 @@ export default function HuntPage() {
                   appearance: 'none'
                 }}
               >
-                <option value="" disabled>Choose a monument...</option>
+                <option value="" disabled>{t('choose_monument')}</option>
                 {monumentList.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
               <ChevronDown style={{ position: 'absolute', right: 12, top: 14, width: 16, height: 16, color: '#C9A84C', pointerEvents: 'none' }} />
@@ -194,7 +201,7 @@ export default function HuntPage() {
     return (
       <AppShell>
         <div className="p-4 lg:p-8">
-          <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[#C9A84C] mb-2">🗺️ Heritage Treasure Hunt</h1>
+          <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[#C9A84C] mb-2">{t('treasure_hunt')}</h1>
           <LoadingSpinner />
         </div>
       </AppShell>
@@ -205,7 +212,7 @@ export default function HuntPage() {
     return (
       <AppShell>
         <div className="p-4 lg:p-8">
-          <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[#C9A84C] mb-2">🗺️ Heritage Treasure Hunt</h1>
+          <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[#C9A84C] mb-2">{t('treasure_hunt')}</h1>
           <div style={{
             background: 'rgba(196,91,58,0.1)',
             border: '1px solid rgba(196,91,58,0.5)',
@@ -218,7 +225,7 @@ export default function HuntPage() {
               onClick={fetchClue}
               style={{ marginTop: 8, padding: '6px 16px', background: 'rgba(201,168,76,0.2)', border: '1px solid #C9A84C', borderRadius: 8, color: '#C9A84C', cursor: 'pointer' }}
             >
-              Try Again
+              {t('try_again')}
             </button>
           </div>
         </div>
@@ -255,7 +262,7 @@ export default function HuntPage() {
         {completed ? (
           <div className="glass-card rounded-xl p-8 text-center animate-fade-in">
             <div className="text-6xl mb-4">🏆</div>
-            <h2 className="font-serif text-2xl font-bold text-[#C9A84C] mb-2">Heritage Hunter!</h2>
+            <h2 className="font-serif text-2xl font-bold text-[#C9A84C] mb-2">{t('heritage_hunter')}</h2>
             <p className="text-[#C4A882] mb-4">You completed the Treasure Hunt!</p>
             <div className="inline-block px-4 py-2 bg-[#534AB7]/20 rounded-full mb-6 animate-xp-pulse">
               <span className="text-[#534AB7] font-bold">⚡ +500 XP Bonus + {xpEarned} XP Total</span>
@@ -265,16 +272,44 @@ export default function HuntPage() {
               <p className="text-[#C9A84C] font-semibold">Hunter Badge Unlocked</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button className="px-6 py-3 border border-[#C9A84C]/50 text-[#C9A84C] font-semibold rounded-xl transition-all duration-300 hover:bg-[#C9A84C]/10">Share Achievement</button>
-              <button className="px-6 py-3 gold-gradient text-[#0F0B1E] font-semibold rounded-xl transition-all duration-300 hover:scale-105">Explore More</button>
+              <button className="px-6 py-3 border border-[#C9A84C]/50 text-[#C9A84C] font-semibold rounded-xl transition-all duration-300 hover:bg-[#C9A84C]/10">{t('share_achievement')}</button>
+              <button className="px-6 py-3 gold-gradient text-[#0F0B1E] font-semibold rounded-xl transition-all duration-300 hover:scale-105">{t('explore_more')}</button>
             </div>
           </div>
         ) : clue ? (
           <>
-            <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[#C9A84C] mb-2">🗺️ Treasure Hunt</h1>
-            <p className="text-[#C4A882] mb-8">Follow the clues to unlock the monument&apos;s secrets</p>
+            {/* Auto-loaded monument banner */}
+            {lastMonument && (
+              <div style={{
+                background: 'rgba(75,155,142,0.1)',
+                border: '1px solid rgba(75,155,142,0.4)',
+                borderRadius: '12px', padding: '12px 16px',
+                marginBottom: '1.5rem',
+                display: 'flex', alignItems: 'center',
+                justifyContent: 'space-between', gap: '12px'
+              }}>
+                <div style={{ color: '#4B9B8E', fontSize: '14px' }}>
+                  🏛️ <strong>Auto-loaded:</strong> {lastMonument.name} — recognized just now
+                </div>
+                <button
+                  onClick={() => {
+                    setMonumentSelected(false)
+                    clearMonument()
+                  }}
+                  style={{
+                    background: 'none', border: 'none',
+                    color: '#7A6E5C', cursor: 'pointer',
+                    fontSize: '12px', flexShrink: 0
+                  }}
+                >
+                  ✕ Change
+                </button>
+              </div>
+            )}
+            <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[#C9A84C] mb-2">{t('treasure_hunt')}</h1>
+            <p className="text-[#C4A882] mb-8">{t('follow_clues')}</p>
             <div className="flex items-center justify-between mb-8">
-              <p className="text-[#F5E6D3]">Step {clue.step} of {clue.total_steps}</p>
+              <p className="text-[#F5E6D3]">{t('step_of')} {clue.step} {t('of')} {clue.total_steps}</p>
               <div className="flex gap-2">
                 {Array.from({ length: clue.total_steps }).map((_, idx) => (
                   <div key={idx} className={`w-3 h-3 rounded-full transition-all ${idx < clue.step ? "bg-[#C9A84C]" : "bg-[#1C1638]"}`} />
@@ -287,7 +322,7 @@ export default function HuntPage() {
               <p className="text-[#F5E6D3] text-xl leading-relaxed mb-4 font-serif">{clue.clue_text}</p>
               {!showPuzzle && (
                 <button onClick={() => setShowPuzzle(true)} className="w-full py-4 purple-gradient text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02]">
-                  <MapPin className="w-5 h-5" /> I Am Here!
+                  <MapPin className="w-5 h-5" /> {t('i_am_here')}
                 </button>
               )}
             </div>

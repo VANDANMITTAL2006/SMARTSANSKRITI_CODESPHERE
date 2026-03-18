@@ -7,6 +7,7 @@ import { AppWrapper } from '@/components/app-wrapper'
 import { AuthProvider } from '@/lib/authContext'
 import { AuthGuard } from '@/components/auth-guard'
 import { LanguageProvider } from '@/lib/languageContext'
+import { ClientLangWrapper } from '@/components/client-lang-wrapper'
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -41,6 +42,7 @@ export default function RootLayout({
         <AuthProvider>
           <AuthGuard>
             <LanguageProvider>
+              <ClientLangWrapper />
               <UserProvider>
                 <AppWrapper>
                   {children}

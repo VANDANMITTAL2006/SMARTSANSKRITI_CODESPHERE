@@ -173,3 +173,16 @@
   0%, 100% { opacity: 0.88; }
   50%       { opacity: 1; }
 }
+
+/* Hindi font support */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap');
+
+:lang(hi),
+[data-lang="hi"] {
+  font-family: 'Noto Sans Devanagari', var(--font-sans), system-ui, sans-serif !important;
+}
+
+:lang(hi) h1, :lang(hi) h2, :lang(hi) h3,
+[data-lang="hi"] h1, [data-lang="hi"] h2, [data-lang="hi"] h3 {
+  font-family: 'Noto Sans Devanagari', Georgia, serif !important;
+}
