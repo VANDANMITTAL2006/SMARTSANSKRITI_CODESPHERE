@@ -514,6 +514,19 @@ export default function HuntPage() {
     }
   }, [monumentSelected, geoStatus, demoMode, huntMonumentId, activeRiddles])
 
+  // ─── Auto-advance when locationVerified → true ───
+  // This useEffect is the single source of truth for advancing clues.
+  // It fires 1.5s after verification, then calls advanceToNextClue()
+  // which resets all per-clue state BEFORE incrementing activeClueIdx.
+  useEffect(() => {
+    if (!locationVerified) return
+    const timer = setTimeout(() => {
+      advanceToNextClue()
+    }, 1500)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationVerified])
+
   // ─── GPS tracking ───
   useEffect(() => {
     if (!huntStarted || demoMode) return
@@ -677,12 +690,11 @@ export default function HuntPage() {
     setCelebrateXp(xpAmount)
     setCelebrateMedal(medal)
 
-    // Auto-advance after celebration
+    // Clear celebration animation before auto-advance fires (useEffect handles the actual advance)
     setTimeout(() => {
       setCelebrateXp(null)
       setCelebrateMedal('')
-      advanceToNextClue()
-    }, 2000)
+    }, 1200)
   }
 
   const activateDemo = () => { setDemoMode(true); setGeoStatus('inside') }
@@ -980,15 +992,25 @@ export default function HuntPage() {
               </div>
             )}
 
-            {/* Location verified transition */}
-            {locationVerified && celebrateXp === null && (
+            {/* Location verified transition — shows spinner so panel is never blank */}
+            {locationVerified && (
               <div style={{
-                textAlign: 'center', padding: '20px md:30px',
+                textAlign: 'center', padding: '30px 20px',
                 background: 'rgba(75,155,142,0.1)',
                 border: '1px solid rgba(75,155,142,0.3)',
-                borderRadius: 16, color: '#4B9B8E', fontSize: 14, fontWeight: 600
-              }} className="md:text-base">
-                ✓ Location verified — Loading next clue...
+                borderRadius: 16,
+              }}>
+                <div style={{ color: '#4B9B8E', fontSize: 15, fontWeight: 700, marginBottom: 14 }}>
+                  ✓ Location verified!
+                </div>
+                <div style={{
+                  width: 32, height: 32, margin: '0 auto',
+                  border: '3px solid rgba(75,155,142,0.2)',
+                  borderTop: '3px solid #4B9B8E',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }} />
+                <p style={{ color: '#7ECDC0', fontSize: 13, marginTop: 12 }}>Loading next clue...</p>
               </div>
             )}
           </div>
