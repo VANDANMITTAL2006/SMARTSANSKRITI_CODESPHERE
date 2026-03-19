@@ -644,13 +644,16 @@ export default function HuntPage() {
     setCelebrateXp(xpAmount)
     setCelebrateMedal(medal)
 
-    // Persist XP to Supabase (non-blocking)
+    // Persist XP to Supabase
     if (user?.id) {
-      addXP(user.id, xpAmount, 'HUNT_STEP_DONE').then(async newXP => {
-        setProfile((prev: Record<string, unknown> | null) => prev ? { ...prev, total_xp: newXP } : prev)
+      try {
+        const newXP = await addXP(user.id, xpAmount, 'HUNT_STEP_DONE')
+        setProfile((prev: any) => ({ ...prev, total_xp: newXP }))
         window.dispatchEvent(new Event('xp-updated'))
         await computeAndSaveBadges(user.id, { ...profile, total_xp: newXP })
-      }).catch(() => {})
+      } catch (e) {
+        console.error('XP error:', e)
+      }
     }
 
     // After 1.2s clear celebration overlay
@@ -681,7 +684,7 @@ export default function HuntPage() {
             isAdvancingRef.current = false
             if (user?.id) {
               addXP(user.id, 500, 'HUNT_COMPLETED').then(async newXP => {
-                setProfile((p: Record<string, unknown> | null) => p ? { ...p, total_xp: newXP } : p)
+                setProfile((prev: any) => ({ ...prev, total_xp: newXP }))
                 window.dispatchEvent(new Event('xp-updated'))
                 await computeAndSaveBadges(user.id, { ...profile, total_xp: newXP })
               }).catch(() => {})
