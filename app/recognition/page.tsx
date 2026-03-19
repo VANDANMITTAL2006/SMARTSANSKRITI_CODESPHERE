@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/authContext"
 import { addXP, addMonumentVisited, computeAndSaveBadges } from "@/lib/authClient"
 import { saveMonument, monumentNameToId } from "@/lib/monumentStore"
 import { useLang } from "@/lib/languageContext"
+import { useAudioGuide } from "@/hooks/useAudioGuide"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RecognitionResult = Record<string, any>
@@ -46,6 +47,15 @@ export default function RecognitionPage() {
   const { toast, showToast, hideToast } = useToast()
   const { user, profile, setProfile } = useAuth()
   const { t } = useLang()
+
+  // Audio Guide hook
+  const {
+    isSpeaking, speak, stopSpeaking,
+    isListening, startListening, stopListening,
+    isThinking, lastAnswer,
+    lang: audioLang, setLang: setAudioLang,
+    isMuted, toggleMute
+  } = useAudioGuide()
 
   // Cleanup camera on unmount
   useEffect(() => {
@@ -81,7 +91,6 @@ export default function RecognitionPage() {
           res.data.monument_name !== null &&
           res.data.monument_name !== ''
         ) {
-          // Award XP via unified system
           try {
             if (user) {
               const newXP = await addXP(user.id, 25, 'MONUMENT_VISIT')
@@ -93,7 +102,6 @@ export default function RecognitionPage() {
             }
           } catch (err) { console.warn('XP award failed:', err) }
 
-          // Save recognized monument to localStorage for quiz/hunt
           saveMonument(
             monumentNameToId(res.data.monument_name),
             res.data.monument_name
@@ -149,8 +157,14 @@ export default function RecognitionPage() {
     }, 'image/jpeg', 0.9)
   }
 
+  const getMonumentDescription = () => {
+    if (!result) return ''
+    return result.brief_description || result.history || result.significance || ''
+  }
+
   return (
     <AppShell>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
       <div className="p-4 lg:p-8 animate-fade-in">
         <div className="mb-6">
           <h1 className="font-serif text-3xl lg:text-4xl font-bold text-[#C9A84C]">
@@ -253,37 +267,113 @@ export default function RecognitionPage() {
               </div>
             )}
 
-            {/* Listen to Emperor — audio player */}
+            {/* Listen to Emperor */}
             {result.monument_name && result.monument_name !== 'Unknown' && (
               <ListenToEmperor monumentName={result.monument_name} />
             )}
 
-            {/* Monument Detail Tabs — all 6 tabs */}
+            {/* 🎧 Audio Guide Card */}
+            {result.monument_name && result.monument_name !== 'Unknown' && (
+              <div style={{
+                background: 'rgba(28,22,56,0.9)',
+                border: '1px solid rgba(201,168,76,0.2)',
+                borderRadius: '16px', padding: '20px', marginTop: '16px'
+              }}>
+                <h3 style={{ color: '#C9A84C', fontFamily: 'Georgia, serif',
+                             fontSize: '18px', marginBottom: '12px' }}>
+                  🎧 Audio Guide
+                </h3>
+
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                  <button
+                    onClick={() => speak(`Welcome to ${result.monument_name}. ${getMonumentDescription()}`)}
+                    disabled={isSpeaking}
+                    style={{
+                      background: isSpeaking ? 'rgba(75,155,142,0.3)' : 'linear-gradient(135deg,#4B9B8E,#3a7a6e)',
+                      border: 'none', borderRadius: '10px', padding: '8px 16px',
+                      color: 'white', fontSize: '13px', cursor: 'pointer'
+                    }}
+                  >
+                    {isSpeaking ? '🔊 Speaking...' : '▶️ Play Guide'}
+                  </button>
+
+                  {isSpeaking && (
+                    <button onClick={stopSpeaking} style={{
+                      background: 'rgba(220,38,38,0.2)', border: '1px solid #DC2626',
+                      borderRadius: '10px', padding: '8px 16px',
+                      color: '#DC2626', fontSize: '13px', cursor: 'pointer'
+                    }}>⏹️ Stop</button>
+                  )}
+
+                  <button
+                    onClick={isListening ? stopListening : startListening}
+                    style={{
+                      background: isListening ? 'rgba(201,168,76,0.3)' : 'rgba(201,168,76,0.1)',
+                      border: `1px solid ${isListening ? '#C9A84C' : 'rgba(201,168,76,0.27)'}`,
+                      borderRadius: '10px', padding: '8px 16px',
+                      color: '#C9A84C', fontSize: '13px', cursor: 'pointer',
+                      animation: isListening ? 'pulse 1s infinite' : 'none'
+                    }}
+                  >
+                    {isListening ? '🎤 Listening...' : '🎤 Ask Question'}
+                  </button>
+
+                  <button onClick={toggleMute} style={{
+                    background: 'rgba(28,22,56,0.5)', border: '1px solid rgba(201,168,76,0.2)',
+                    borderRadius: '10px', padding: '8px 12px',
+                    color: '#C4A882', fontSize: '13px', cursor: 'pointer'
+                  }}>
+                    {isMuted ? '🔇' : '🔔'}
+                  </button>
+
+                  <button
+                    onClick={() => setAudioLang(audioLang === 'en' ? 'hi' : 'en')}
+                    style={{
+                      background: 'rgba(83,74,183,0.2)', border: '1px solid #534AB7',
+                      borderRadius: '10px', padding: '8px 12px',
+                      color: '#534AB7', fontSize: '13px', cursor: 'pointer'
+                    }}
+                  >
+                    {audioLang === 'en' ? 'हि' : 'EN'}
+                  </button>
+                </div>
+
+                {isThinking && (
+                  <p style={{ color: '#4B9B8E', fontSize: '13px', fontStyle: 'italic' }}>🤔 Thinking...</p>
+                )}
+
+                {lastAnswer && !isThinking && (
+                  <div style={{
+                    background: 'rgba(75,155,142,0.1)', borderLeft: '3px solid #4B9B8E',
+                    borderRadius: '8px', padding: '12px',
+                    color: '#F5E6D3', fontSize: '14px', lineHeight: '1.6'
+                  }}>
+                    {lastAnswer}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Monument Detail Tabs */}
             {result.monument_name && result.monument_name !== 'Unknown' && (
               <MonumentDetailTabs monumentName={result.monument_name} />
             )}
 
-            {/* Quick action buttons — Quiz & Hunt */}
+            {/* Quick action buttons */}
             {result.monument_name && result.monument_name !== 'Unknown' && (
               <div style={{ display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
                 <a href="/quiz" style={{
-                  padding: '10px 18px',
-                  background: 'linear-gradient(135deg, #D4893F, #C9A84C)',
-                  color: '#0F0B1E', borderRadius: '10px',
-                  textDecoration: 'none', fontSize: '13px',
-                  fontWeight: 700, display: 'flex',
-                  alignItems: 'center', gap: '6px'
+                  padding: '10px 18px', background: 'linear-gradient(135deg, #D4893F, #C9A84C)',
+                  color: '#0F0B1E', borderRadius: '10px', textDecoration: 'none', fontSize: '13px',
+                  fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px'
                 }}>
                   🧠 {t('take_quiz')} — {result.monument_name.split(' ')[0]}
                 </a>
                 <a href="/hunt" style={{
-                  padding: '10px 18px',
-                  background: 'rgba(83,74,183,0.2)',
-                  border: '1px solid rgba(83,74,183,0.5)',
-                  color: '#9B92F0', borderRadius: '10px',
-                  textDecoration: 'none', fontSize: '13px',
-                  fontWeight: 700, display: 'flex',
-                  alignItems: 'center', gap: '6px'
+                  padding: '10px 18px', background: 'rgba(83,74,183,0.2)',
+                  border: '1px solid rgba(83,74,183,0.5)', color: '#9B92F0', borderRadius: '10px',
+                  textDecoration: 'none', fontSize: '13px', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', gap: '6px'
                 }}>
                   🗺️ {t('treasure_hunt')}
                 </a>

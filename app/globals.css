@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap');
 
 
 @custom-variant dark (&:is(.dark *));
@@ -175,7 +176,6 @@
 }
 
 /* Hindi font support */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap');
 
 :lang(hi),
 [data-lang="hi"] {

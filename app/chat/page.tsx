@@ -8,6 +8,7 @@ import { Toast, useToast } from "@/components/Toast"
 import { useAuth } from "@/lib/authContext"
 import { saveChatMessage } from "@/lib/authClient"
 import { useLang } from "@/lib/languageContext"
+import { useVapi } from "@/hooks/useVapi"
 
 interface Message { id: number; role: "assistant" | "user"; content: string }
 interface Monument { id: string; name: string }
@@ -35,6 +36,13 @@ export default function ChatPage() {
   const { toast, showToast, hideToast } = useToast()
   const { user } = useAuth()
 
+  // Vapi voice call hook
+  const {
+    isCallActive, isListening: vapiListening, isSpeaking: vapiSpeaking, isLoading: vapiLoading,
+    transcript, messages: vapiMessages,
+    startCall, endCall, error: vapiError
+  } = useVapi()
+
   useEffect(() => {
     api.getNearby().then(res => {
       const list: Monument[] = (res.data.monuments || []).map((m: { id: string; name: string }) => ({ id: m.id, name: MONUMENT_NAMES[m.id] || m.name }))
@@ -49,6 +57,22 @@ export default function ChatPage() {
     setMessages([{ id: 1, role: "assistant", content: t('namaste_greeting') }])
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang])
+
+  // Merge Vapi voice messages into the main chat thread
+  useEffect(() => {
+    if (vapiMessages.length > 0) {
+      const last = vapiMessages[vapiMessages.length - 1]
+      setMessages(prev => {
+        const alreadyExists = prev.some(m => m.content === last.text)
+        if (alreadyExists) return prev
+        return [...prev, {
+          id: prev.length + 1,
+          role: last.role === 'user' ? 'user' : 'assistant',
+          content: last.text
+        }]
+      })
+    }
+  }, [vapiMessages])
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading) return
@@ -83,6 +107,7 @@ export default function ChatPage() {
 
   return (
     <AppShell>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
       <div className="flex flex-col h-[calc(100vh-96px)] lg:h-screen">
         <div className="flex items-center justify-between p-4 border-b border-[#C9A84C]/20 flex-wrap gap-2">
           <div className="flex items-center gap-3">
@@ -97,7 +122,43 @@ export default function ChatPage() {
               </select>
               <ChevronDown className="w-3 h-3 text-[#C9A84C] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
+            {/* Voice Call Button */}
+            {!isCallActive ? (
+              <button
+                onClick={() => startCall(undefined, monumentId)}
+                disabled={vapiLoading}
+                style={{
+                  background: 'linear-gradient(135deg, #C9A84C, #D4893F)',
+                  borderRadius: '12px', padding: '10px 16px',
+                  color: '#0F0B1E', fontWeight: '700', fontSize: '14px',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  border: 'none', cursor: vapiLoading ? 'wait' : 'pointer',
+                  opacity: vapiLoading ? 0.7 : 1
+                }}
+              >
+                📞 {vapiLoading ? 'Connecting...' : 'Voice Call'}
+              </button>
+            ) : (
+              <button
+                onClick={endCall}
+                style={{
+                  background: '#DC2626', borderRadius: '12px',
+                  padding: '10px 16px', color: 'white',
+                  fontWeight: '700', fontSize: '14px',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  border: 'none', cursor: 'pointer',
+                  animation: 'pulse 2s infinite'
+                }}
+              >
+                📵 End Call
+              </button>
+            )}
           </div>
+          {vapiError && (
+            <p style={{ color: '#DC2626', fontSize: '12px', marginTop: '4px', width: '100%', textAlign: 'right' }}>
+              {vapiError}
+            </p>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((message) => (
@@ -124,6 +185,30 @@ export default function ChatPage() {
           ))}
         </div>
         <div className="p-4 border-t border-[#C9A84C]/20">
+          {/* Active voice call status bar */}
+          {isCallActive && (
+            <div style={{
+              background: 'rgba(201,168,76,0.1)', border: '1px solid #C9A84C',
+              borderRadius: '12px', padding: '10px 16px',
+              display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px'
+            }}>
+              <div style={{
+                width: '10px', height: '10px', borderRadius: '50%',
+                background: vapiSpeaking ? '#4B9B8E' : vapiListening ? '#C9A84C' : '#666',
+                animation: (vapiSpeaking || vapiListening) ? 'pulse 1s infinite' : 'none'
+              }}/>
+              <span style={{ color: '#C9A84C', fontSize: '13px' }}>
+                {vapiSpeaking ? '🔊 AI is speaking...'
+                 : vapiListening ? '🎤 Listening...'
+                 : '💬 Voice call active — speak your question'}
+              </span>
+              {transcript && (
+                <span style={{ color: '#C4A882', fontSize: '12px', fontStyle: 'italic' }}>
+                  &quot;{transcript}&quot;
+                </span>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder={t('ask_placeholder')} className="flex-1 bg-[#1C1638] border border-[#C9A84C]/30 rounded-xl px-4 py-3 text-[#F5E6D3] placeholder:text-[#C4A882] focus:outline-none focus:border-[#C9A84C] transition-colors" />
             <button onClick={startVoice} className={`px-3 py-3 rounded-xl transition-all duration-300 hover:scale-105 flex items-center gap-1.5 text-sm font-medium ${listening ? 'bg-[#4B9B8E] text-white animate-pulse' : 'purple-gradient text-white'}`}>
