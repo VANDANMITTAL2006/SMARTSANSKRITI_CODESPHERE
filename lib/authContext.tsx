@@ -88,11 +88,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // CRITICAL: getSession on mount handles page refresh
   // Without this, profile never loads on refresh
   useEffect(() => {
+    // Safety valve: never show spinner more than 3 seconds
+    const timeoutId = setTimeout(() => setLoading(false), 3000)
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      clearTimeout(timeoutId)
       if (session?.user) {
         setUser(session.user)
         fetchProfile(session.user.id)
       }
+      setLoading(false)
+    }).catch(() => {
+      clearTimeout(timeoutId)
       setLoading(false)
     })
 
@@ -109,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => { subscription.unsubscribe(); clearTimeout(timeoutId) }
   }, [])
 
   // Re-fetch on tab focus and xp-updated events
