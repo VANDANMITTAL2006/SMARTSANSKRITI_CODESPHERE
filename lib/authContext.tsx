@@ -88,18 +88,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // CRITICAL: getSession on mount handles page refresh
   // Without this, profile never loads on refresh
   useEffect(() => {
-    // Safety valve: never show spinner more than 3 seconds
-    const timeoutId = setTimeout(() => setLoading(false), 3000)
+    // TIMEOUT FALLBACK — if auth takes too long, stop loading
+    const timeout = setTimeout(() => {
+      setLoading(false)
+    }, 3000)
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      clearTimeout(timeoutId)
+      clearTimeout(timeout)
+      setUser(session?.user ?? null)
       if (session?.user) {
-        setUser(session.user)
-        fetchProfile(session.user.id)
+        fetchProfile(session.user.id).finally(() => {
+          setLoading(false)
+        })
+      } else {
+        setLoading(false)
       }
-      setLoading(false)
     }).catch(() => {
-      clearTimeout(timeoutId)
+      clearTimeout(timeout)
       setLoading(false)
     })
 
@@ -116,12 +121,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     )
 
-    return () => { subscription.unsubscribe(); clearTimeout(timeoutId) }
-  }, [])
+    return () => {
+      clearTimeout(timeout)
+      subscription.unsubscribe()
+      window.removeEventListener('focus', refetch)
+      window.removeEventListener('xp-updated', refetch)
+    }
 
-  // Re-fetch on tab focus and xp-updated events
-  useEffect(() => {
-    const handler = async () => {
+    async function refetch() {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
         const { data } = await supabase
@@ -132,12 +139,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data) setProfile(data)
       }
     }
-    window.addEventListener('focus', handler)
-    window.addEventListener('xp-updated', handler)
-    return () => {
-      window.removeEventListener('focus', handler)
-      window.removeEventListener('xp-updated', handler)
-    }
+    window.addEventListener('focus', refetch)
+    window.addEventListener('xp-updated', refetch)
   }, [])
 
   // Safe setProfile that supports functional updates

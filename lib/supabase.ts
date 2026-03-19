@@ -1,9 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://huwqeyyjurnekqplwwmk.supabase.co'
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_scP_9KxjtCDh26lqejHddA_CCyuSIRg'
+export const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+    'https://huwqeyyjurnekqplwwmk.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    'sb_publishable_scP_9KxjtCDh26lqejHddA_CCyuSIRg'
+)
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
 
 export type UserProfile = {
   id: string
