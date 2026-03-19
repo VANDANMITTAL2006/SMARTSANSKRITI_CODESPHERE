@@ -8,6 +8,7 @@ export const TRANSLATIONS: Record<string, { en: string; hi: string }> = {
   nav_home: { en: 'Home', hi: 'होम' }, nav_map: { en: 'Map', hi: 'नक्शा' },
   nav_recognition: { en: 'Recognition', hi: 'पहचान' }, nav_chatbot: { en: 'Chatbot', hi: 'चैटबॉट' },
   nav_quiz: { en: 'Quiz', hi: 'क्विज़' }, nav_hunt: { en: 'Hunt', hi: 'खोज' },
+  nav_explore: { en: 'Explore', hi: 'खोजें' },
   nav_achievements: { en: 'Achievements', hi: 'उपलब्धियाँ' }, nav_festivals: { en: 'Festivals', hi: 'उत्सव' },
   nav_itinerary: { en: 'Itinerary', hi: 'यात्रा योजना' },
   // Language toggle

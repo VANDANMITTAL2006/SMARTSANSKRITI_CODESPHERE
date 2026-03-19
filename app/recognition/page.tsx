@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { AppShell } from "@/components/app-shell"
 import { OrnamentalDivider } from "@/components/ornamental-divider"
 import { UploadZone } from "@/components/recognition/upload-zone"
@@ -36,6 +37,7 @@ function LoadingSpinner() {
 }
 
 export default function RecognitionPage() {
+  const router = useRouter()
   const [result, setResult] = useState<RecognitionResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -265,6 +267,24 @@ export default function RecognitionPage() {
                   ⚡ +25 XP earned!
                 </span>
               </div>
+            )}
+
+            {/* Let's Explore button for Taj Mahal */}
+            {result.monument_name && result.monument_name.toLowerCase().includes('taj') && (
+              <button
+                onClick={() => router.push('/explore')}
+                style={{
+                  background: 'linear-gradient(135deg, #C9A84C, #D4893F)',
+                  borderRadius: '16px', padding: '14px 28px',
+                  color: '#0F0B1E', fontWeight: '700', fontSize: '16px',
+                  width: '100%', border: 'none', cursor: 'pointer',
+                  marginTop: '16px', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: '10px', letterSpacing: '0.5px'
+                }}
+              >
+                🗺️ Let&apos;s Explore Taj Mahal
+                <span style={{ fontSize: '12px', opacity: 0.8 }}>+350 XP available</span>
+              </button>
             )}
 
             {/* Listen to Emperor */}
