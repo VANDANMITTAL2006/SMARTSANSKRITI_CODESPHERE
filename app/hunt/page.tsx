@@ -455,7 +455,6 @@ export default function HuntPage() {
   const [userLng, setUserLng] = useState(() => (MONUMENT_USER_START[lastMonument?.id || 'taj-mahal'] || MONUMENT_USER_START['taj-mahal']).lng)
 
   // ─── Synthetic players ───
-  const initRiddles = MONUMENT_RIDDLES[lastMonument?.id || 'taj-mahal'] || TAJ_MAHAL_RIDDLES
   const [playerStates, setPlayerStates] = useState<PlayerState[]>(() => makePlayers(lastMonument?.id || 'taj-mahal'))
 
   // ─── Leaderboard ───
@@ -469,16 +468,13 @@ export default function HuntPage() {
   const activeRiddles = MONUMENT_RIDDLES[huntMonumentId] || TAJ_MAHAL_RIDDLES
   const activeRiddle = activeRiddles[activeClueIdx]
 
-  // ─── Load monument list ───
+  // ─── Monument list — only the 3 demo-ready ones ───
   useEffect(() => {
-    api.getNearby().then(res => {
-      const list = (res.data.monuments || []).map((m: { id: string; name: string }) => ({
-        id: m.id, name: MONUMENT_NAMES[m.id] || m.name,
-      }))
-      if (list.length > 0) setMonuments(list)
-    }).catch(() => {
-      setMonuments(Object.entries(MONUMENT_NAMES).map(([id, name]) => ({ id, name })))
-    })
+    setMonuments([
+      { id: 'taj-mahal',   name: 'Taj Mahal' },
+      { id: 'red-fort',    name: 'Red Fort' },
+      { id: 'qutub-minar', name: 'Qutub Minar' },
+    ])
   }, [])
 
   // ─── Geo-fence entry check ───
