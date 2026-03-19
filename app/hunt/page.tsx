@@ -428,8 +428,13 @@ export default function HuntPage() {
   const { t } = useLang()
 
   // ─── Selection state ───
-  const [monumentSelected, setMonumentSelected] = useState(!!lastMonument)
-  const [huntMonumentId, setHuntMonumentId] = useState(lastMonument?.id || 'taj-mahal')
+  const monumentSelected = true // always start directly into hunt (no blocking gate)
+  const [huntMonumentId, setHuntMonumentId] = useState(
+    (() => {
+      const stored = lastMonument?.id
+      return stored && MONUMENT_RIDDLES[stored] ? stored : 'taj-mahal'
+    })()
+  )
   const [monuments, setMonuments] = useState<{id: string, name: string}[]>([])
 
   // ─── Geo state ───
@@ -475,6 +480,8 @@ export default function HuntPage() {
       { id: 'red-fort',    name: 'Red Fort' },
       { id: 'qutub-minar', name: 'Qutub Minar' },
     ])
+    // Save default on first load so localStorage is set
+    if (!lastMonument) saveMonument('taj-mahal', 'Taj Mahal')
   }, [])
 
   // ─── Geo-fence entry check ───
@@ -683,51 +690,7 @@ export default function HuntPage() {
   // ═══════════════
   // RENDER: Monument Selection
   // ═══════════════
-  if (!monumentSelected) {
-    const monumentList = monuments.length > 0
-      ? monuments
-      : Object.entries(MONUMENT_NAMES).map(([id, name]) => ({ id, name }))
-    return (
-      <AppShell>
-        <div style={{ padding: 24 }}>
-          <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 32, color: '#C9A84C', fontWeight: 700 }}>{t('treasure_hunt')}</h1>
-          <div style={{
-            marginTop: 48, textAlign: 'center', background: 'rgba(28,22,56,0.9)',
-            border: '1px solid rgba(201,168,76,0.3)', borderRadius: 20, padding: 56,
-            maxWidth: 520, margin: '48px auto'
-          }}>
-            <div style={{ fontSize: 72, marginBottom: 16 }}>🗺️</div>
-            <h2 style={{ color: '#C9A84C', fontFamily: 'Georgia,serif', fontSize: 26, margin: '0 0 12px' }}>{t('select_monument_hunt')}</h2>
-            <p style={{ color: '#C4A882', fontSize: 16, marginBottom: 28, lineHeight: 1.6 }}>{t('choose_monument_hunt')}</p>
-            <div style={{ position: 'relative', display: 'inline-block' }}>
-              <select onChange={e => {
-                const id = e.target.value
-                const newRiddles = MONUMENT_RIDDLES[id] || TAJ_MAHAL_RIDDLES
-                const start = MONUMENT_USER_START[id] || MONUMENT_USER_START['taj-mahal']
-                const name = monumentList.find(m => m.id === id)?.name || id
-                setHuntMonumentId(id); setMonumentSelected(true); saveMonument(id, name)
-                setActiveClueIdx(0); setCompletedClues(new Set()); setXpEarned(0); setHuntCompleted(false);
-                setPlayerStates(makePlayers(id))
-                setUserLat(start.lat); setUserLng(start.lng)
-              }} value={huntMonumentId} style={{
-                padding: '12px 40px 12px 16px', background: 'rgba(28,22,56,0.9)',
-                border: '1px solid #C9A84C', color: '#C9A84C', borderRadius: 10,
-                fontSize: 16, cursor: 'pointer', minWidth: 260, marginBottom: 16, appearance: 'none' as const
-              }}>
-                <option value="" disabled>{t('choose_monument')}</option>
-                {monumentList.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
-              <ChevronDown style={{ position: 'absolute', right: 12, top: 14, width: 16, height: 16, color: '#C9A84C', pointerEvents: 'none' }} />
-            </div>
-            {!MONUMENT_RIDDLES[huntMonumentId] && huntMonumentId !== 'taj-mahal' && (
-              <div style={{ color: '#7A6E5C', fontSize: 13, marginTop: 8 }}>Note: Treasure hunt not yet available for this monument. Try Taj Mahal, Red Fort or Qutub Minar.</div>
-            )}
-          </div>
-        </div>
-      </AppShell>
-    )
-  }
-
+  // No blocking gate — always go directly into hunt/demo
   // ═══════════════
   // RENDER: Geo-checking
   // ═══════════════

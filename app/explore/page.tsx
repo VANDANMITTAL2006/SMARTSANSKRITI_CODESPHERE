@@ -284,8 +284,11 @@ export default function ExplorePage() {
   const [userPos, setUserPos] = useState(() => EXPLORE_USER_START[getMonument()?.id || 'taj-mahal'] || EXPLORE_USER_START['taj-mahal'])
   const [isTTSSpeaking, setIsTTSSpeaking] = useState(false)
 
-  const [exploreMonumentId, setExploreMonumentId] = useState(getMonument()?.id || 'taj-mahal')
-  const [monumentSelected, setMonumentSelected] = useState(!!getMonument())
+  const [exploreMonumentId, setExploreMonumentId] = useState(() => {
+    const stored = getMonument()?.id
+    return stored && MONUMENT_ZONES[stored] ? stored : 'taj-mahal'
+  })
+  const monumentSelected = true // always start directly into explore
   const [monumentsList, setMonumentsList] = useState<{id: string; name: string}[]>([])
   
   const activeZones = MONUMENT_ZONES[exploreMonumentId] || TAJ_ZONES
@@ -428,43 +431,7 @@ export default function ExplorePage() {
     )
   }
 
-  if (!monumentSelected) {
-    return (
-      <AppShell>
-        <div style={{ padding: 24, paddingBottom: 60 }}>
-          <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 32, color: '#C9A84C', fontWeight: 700 }}>Monument Explorer</h1>
-          <div style={{
-            marginTop: 48, textAlign: 'center', background: 'rgba(28,22,56,0.9)',
-            border: '1px solid rgba(201,168,76,0.3)', borderRadius: 20, padding: 56,
-            maxWidth: 520, margin: '48px auto'
-          }}>
-            <div style={{ fontSize: 72, marginBottom: 16 }}>🧭</div>
-            <h2 style={{ color: '#C9A84C', fontFamily: 'Georgia,serif', fontSize: 26, margin: '0 0 12px' }}>Select a Monument</h2>
-            <p style={{ color: '#C4A882', fontSize: 16, marginBottom: 28, lineHeight: 1.6 }}>Choose a historic site to start your guided exploration.</p>
-            <div style={{ position: 'relative', display: 'inline-block' }}>
-              <select onChange={e => {
-                const id = e.target.value
-                const name = monumentsList.find(m => m.id === id)?.name || id
-                setExploreMonumentId(id); setMonumentSelected(true); saveMonument(id, name);
-                setCurrentZoneIndex(0); setCompletedZones([]); setXpEarned(0); setExplorerComplete(false); setArrivedAtZone(false);
-                const newStart = EXPLORE_USER_START[id] || EXPLORE_USER_START['taj-mahal']
-                setUserPos(newStart)
-              }} value={exploreMonumentId} style={{
-                padding: '12px 40px 12px 16px', background: 'rgba(28,22,56,0.9)',
-                border: '1px solid #C9A84C', color: '#C9A84C', borderRadius: 10,
-                fontSize: 16, cursor: 'pointer', minWidth: 260, marginBottom: 16, appearance: 'none' as const
-              }}>
-                <option value="" disabled>Choose a monument</option>
-                {monumentsList.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
-              <ChevronDown style={{ position: 'absolute', right: 12, top: 14, width: 16, height: 16, color: '#C9A84C', pointerEvents: 'none' }} />
-            </div>
-          </div>
-        </div>
-      </AppShell>
-    )
-  }
-
+  // No blocking gate — always go directly into explore
   return (
     <AppShell>
       <style>{`
