@@ -121,38 +121,134 @@ export async function updateUserProfile(
   if (error) throw error
 }
 
-export async function addXP(userId: string, xpToAdd: number) {
-  const profile = await getUserProfile(userId)
-  if (!profile) return
-  const newXP = (profile.total_xp || 0) + xpToAdd
-  await updateUserProfile(userId, { total_xp: newXP })
-  return newXP
+export async function addXP(
+  userId: string,
+  xpDelta: number,
+  eventType: string
+): Promise<number> {
+  try {
+    console.log('[addXP] called:', userId, xpDelta, eventType)
+
+    const { data: current, error: selectErr } = await supabase
+      .from('user_profiles')
+      .select('total_xp')
+      .eq('id', userId)
+      .single()
+
+    if (selectErr) {
+      console.error('[addXP] SELECT failed:', selectErr.message, selectErr.details, selectErr.hint)
+      return 0
+    }
+
+    const currentXP = current?.total_xp ?? 0
+    const newXP = currentXP + xpDelta
+    console.log('[addXP] currentXP:', currentXP, '→ newXP:', newXP)
+
+    const { error: updateErr } = await supabase
+      .from('user_profiles')
+      .update({ total_xp: newXP, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+
+    if (updateErr) {
+      console.error('[addXP] UPDATE failed:', updateErr.message, updateErr.details, updateErr.hint)
+      return 0
+    }
+
+    console.log('[addXP] ✅ Supabase updated. newXP =', newXP)
+
+    fetch('https://heritageai-backend.onrender.com/game/xp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, xp_delta: xpDelta, event_type: eventType })
+    }).catch(() => {})
+
+    return newXP
+  } catch (err) {
+    console.error('[addXP] EXCEPTION:', err)
+    return 0
+  }
 }
 
 export async function addMonumentVisited(
   userId: string,
   monumentName: string
-) {
-  const profile = await getUserProfile(userId)
-  if (!profile) return
-  const existing: string[] = profile.monuments_visited || []
-  if (!existing.includes(monumentName)) {
-    await updateUserProfile(userId, {
-      monuments_visited: [...existing, monumentName]
-    })
+): Promise<void> {
+  try {
+    const { data: current } = await supabase
+      .from('user_profiles')
+      .select('monuments_visited')
+      .eq('id', userId)
+      .single()
+
+    const existing: string[] = current?.monuments_visited ?? []
+    if (existing.includes(monumentName)) return
+
+    await supabase
+      .from('user_profiles')
+      .update({
+        monuments_visited: [...existing, monumentName],
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+  } catch (err) {
+    console.error('addMonumentVisited failed:', err)
   }
 }
 
-export async function saveQuizScore(
+export async function addQuizScore(
   userId: string,
-  monumentId: string,
   score: number
-) {
-  const profile = await getUserProfile(userId)
-  if (!profile) return
-  const scores: Record<string, number> = profile.quiz_scores || {}
-  scores[monumentId] = score
-  await updateUserProfile(userId, { quiz_scores: scores })
+): Promise<void> {
+  try {
+    const { data: current } = await supabase
+      .from('user_profiles')
+      .select('quiz_scores')
+      .eq('id', userId)
+      .single()
+
+    const existing: number[] = current?.quiz_scores ?? []
+
+    await supabase
+      .from('user_profiles')
+      .update({
+        quiz_scores: [...existing, score],
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+  } catch (err) {
+    console.error('addQuizScore failed:', err)
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function computeAndSaveBadges(
+  userId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  profile: any
+): Promise<string[]> {
+  try {
+    const earned: string[] = []
+    const xp = profile.total_xp ?? 0
+    const visited = profile.monuments_visited?.length ?? 0
+    const quizTotal = (profile.quiz_scores ?? [])
+      .reduce((a: number, b: number) => a + b, 0)
+
+    if (visited >= 1)     earned.push('first_scan')
+    if (quizTotal >= 100) earned.push('quiz_master')
+    if (visited >= 3)     earned.push('explorer')
+    if (xp >= 500)        earned.push('hunter')
+    if (xp >= 2000)       earned.push('legend')
+
+    await supabase
+      .from('user_profiles')
+      .update({ badges: earned, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+
+    return earned
+  } catch (err) {
+    console.error('computeAndSaveBadges failed:', err)
+    return []
+  }
 }
 
 export async function saveChatMessage(

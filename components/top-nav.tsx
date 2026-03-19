@@ -10,6 +10,7 @@ import {
   HelpCircle, Trophy, Calendar, Search,
   MapPin, Menu, X, ChevronDown
 } from 'lucide-react'
+import SanskritiLogo from './SanskritiLogo'
 
 const NAV_ITEMS = [
   { href: '/', icon: Home, key: 'nav_home' },
@@ -94,24 +95,9 @@ export function TopNav() {
         {/* Logo */}
         <Link href="/" style={{
           display: 'flex', alignItems: 'center',
-          gap: '10px', textDecoration: 'none', flexShrink: 0
+          gap: '8px', textDecoration: 'none', flexShrink: 0
         }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: '9px',
-            background: 'linear-gradient(135deg, #D4893F, #C9A84C)',
-            display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontSize: '17px'
-          }}>🕉️</div>
-          <div>
-            <div style={{
-              fontFamily: 'Georgia, serif', fontSize: '15px',
-              fontWeight: 700, color: '#C9A84C', lineHeight: 1.1
-            }}>Sanskriti AI</div>
-            <div style={{
-              fontSize: '9px', color: '#7A6E5C',
-              letterSpacing: '0.1em', textTransform: 'uppercase'
-            }}>Heritage Guide</div>
-          </div>
+          <SanskritiLogo size={38} />
         </Link>
 
         {/* Desktop nav links */}
@@ -183,14 +169,26 @@ export function TopNav() {
           )}
 
           <div style={{
-            padding: '5px 9px',
-            background: 'rgba(83,74,183,0.15)',
-            border: '1px solid rgba(83,74,183,0.35)',
-            borderRadius: '7px', color: '#9B92F0',
-            fontSize: '11px', fontWeight: 700,
-            whiteSpace: 'nowrap'
+            background: 'linear-gradient(135deg, #C9A84C, #D4893F)',
+            borderRadius: '20px',
+            padding: '6px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            border: '1px solid #C9A84C',
+            minWidth: '90px',
+            justifyContent: 'center'
           }}>
-            ⚡ {profile?.total_xp || 0} XP
+            <span style={{ fontSize: '16px' }}>⚡</span>
+            <span style={{
+              color: '#1A0F00',
+              fontWeight: '700',
+              fontSize: '15px',
+              fontFamily: 'Georgia, serif',
+              letterSpacing: '0.5px'
+            }}>
+              {(profile?.total_xp ?? 0).toLocaleString()} XP
+            </span>
           </div>
 
           {user && (
@@ -323,7 +321,7 @@ export function TopNav() {
                 {profile?.full_name || user.email?.split('@')[0]}
               </div>
               <div style={{ color: '#7A6E5C', fontSize: '11px' }}>
-                ⚡ {profile?.total_xp || 0} XP
+                ⚡ {(profile?.total_xp ?? 0).toLocaleString()} XP
               </div>
             </div>
           )}

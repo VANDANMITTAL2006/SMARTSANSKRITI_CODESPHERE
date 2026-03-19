@@ -7,7 +7,7 @@ import Link from "next/link"
 import api from "@/lib/apiClient"
 import { Toast, useToast } from "@/components/Toast"
 import { useAuth } from "@/lib/authContext"
-import { saveQuizScore, addXP } from "@/lib/authClient"
+import { addXP, addQuizScore, computeAndSaveBadges } from "@/lib/authClient"
 import { useLang } from "@/lib/languageContext"
 import { getMonument, saveMonument, clearMonument } from "@/lib/monumentStore"
 
@@ -55,7 +55,7 @@ export default function QuizPage() {
   const [monuments, setMonuments] = useState<Monument[]>([])
   const [monumentSelected, setMonumentSelected] = useState(!!lastMonument)
   const { toast, showToast, hideToast } = useToast()
-  const { user } = useAuth()
+  const { user, profile, setProfile } = useAuth()
   const { t } = useLang()
 
   // Load monument list for selector
@@ -108,18 +108,23 @@ export default function QuizPage() {
       setXpEarned(prev => prev + 10)
       showToast('+10 XP for correct answer!')
       try {
-        await api.awardXP('demo_user', 10, 'QUIZ_CORRECT')
-        if (user) await addXP(user.id, 10)
+        if (user) {
+          const newXP = await addXP(user.id, 10, 'QUIZ_CORRECT')
+          setProfile((prev: Record<string, unknown> | null) => prev ? { ...prev, total_xp: newXP } : prev)
+          await addQuizScore(user.id, 10)
+          window.dispatchEvent(new Event('xp-updated'))
+          const updatedProfile = { ...profile, total_xp: newXP }
+          await computeAndSaveBadges(user.id, updatedProfile)
+        }
       } catch { /* silent */ }
     }
 
     setTimeout(async () => {
       if (currentIndex + 1 >= questions.length) {
         setFinished(true)
-        // Save quiz score to Supabase
         if (user) {
           try {
-            await saveQuizScore(user.id, monumentId, score + (correct ? 1 : 0))
+            window.dispatchEvent(new Event('xp-updated'))
           } catch { /* silent */ }
         }
       } else {

@@ -10,7 +10,7 @@ import { ListenToEmperor } from "@/components/recognition/listen-to-emperor"
 import api from "@/lib/apiClient"
 import { Toast, useToast } from "@/components/Toast"
 import { useAuth } from "@/lib/authContext"
-import { addMonumentVisited, addXP } from "@/lib/authClient"
+import { addXP, addMonumentVisited, computeAndSaveBadges } from "@/lib/authClient"
 import { saveMonument, monumentNameToId } from "@/lib/monumentStore"
 import { useLang } from "@/lib/languageContext"
 
@@ -44,7 +44,7 @@ export default function RecognitionPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { toast, showToast, hideToast } = useToast()
-  const { user } = useAuth()
+  const { user, profile, setProfile } = useAuth()
   const { t } = useLang()
 
   // Cleanup camera on unmount
@@ -81,12 +81,15 @@ export default function RecognitionPage() {
           res.data.monument_name !== null &&
           res.data.monument_name !== ''
         ) {
-          // Award XP
+          // Award XP via unified system
           try {
-            await api.awardXP('demo_user', 25, 'MONUMENT_VISIT')
             if (user) {
-              await addXP(user.id, 25)
+              const newXP = await addXP(user.id, 25, 'MONUMENT_VISIT')
+              setProfile((prev: Record<string, unknown> | null) => prev ? { ...prev, total_xp: newXP } : prev)
               await addMonumentVisited(user.id, res.data.monument_name)
+              window.dispatchEvent(new Event('xp-updated'))
+              const updatedProfile = { ...profile, total_xp: newXP, monuments_visited: [...(profile?.monuments_visited || []), res.data.monument_name] }
+              await computeAndSaveBadges(user.id, updatedProfile)
             }
           } catch (err) { console.warn('XP award failed:', err) }
 

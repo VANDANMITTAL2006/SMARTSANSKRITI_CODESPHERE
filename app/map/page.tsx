@@ -7,7 +7,7 @@ import { XpPopup } from "@/components/map/xp-popup"
 import api from "@/lib/apiClient"
 import { Toast, useToast } from "@/components/Toast"
 import { useAuth } from "@/lib/authContext"
-import { addXP } from "@/lib/authClient"
+import { addXP, computeAndSaveBadges } from "@/lib/authClient"
 import { useLang } from "@/lib/languageContext"
 
 interface Monument { id: string; name: string; lat: number; lng: number; description_en?: string; city: string; state: string }
@@ -30,7 +30,7 @@ export default function MapPage() {
   const [xpPopup, setXpPopup] = useState<XpPopupData | null>(null)
   const [selectedMonument, setSelectedMonument] = useState<Monument | null>(null)
   const { toast, showToast, hideToast } = useToast()
-  const { user } = useAuth()
+  const { user, profile, setProfile } = useAuth()
 
   const fetchMonuments = () => {
     setLoading(true); setError(null)
@@ -46,17 +46,22 @@ export default function MapPage() {
   const handleSimulateArrival = async (monument: Monument) => {
     try {
       const res = await api.checkin(monument.lat, monument.lng)
-      if (res.data.triggered_zones && res.data.triggered_zones.length > 0) {
-        const triggered = res.data.triggered_zones[0]
-        setXpPopup({ zoneName: triggered.zone_name, xp: triggered.xp_awarded })
-        await api.awardXP('demo_user', triggered.xp_awarded, 'ZONE_CHECKIN')
-        showToast(`+${triggered.xp_awarded} XP!`)
-        if (user) addXP(user.id, triggered.xp_awarded).catch(() => null)
-      } else {
-        setXpPopup({ zoneName: monument.name, xp: 50 })
-        await api.awardXP('demo_user', 50, 'ZONE_CHECKIN')
-        showToast('+50 XP!')
-        if (user) addXP(user.id, 50).catch(() => null)
+      const xpAmount = (res.data.triggered_zones && res.data.triggered_zones.length > 0)
+        ? res.data.triggered_zones[0].xp_awarded
+        : 50
+      const zoneName = (res.data.triggered_zones && res.data.triggered_zones.length > 0)
+        ? res.data.triggered_zones[0].zone_name
+        : monument.name
+
+      setXpPopup({ zoneName, xp: xpAmount })
+      showToast(`+${xpAmount} XP!`)
+
+      if (user) {
+        const newXP = await addXP(user.id, xpAmount, 'ZONE_CHECKIN')
+        setProfile((prev: Record<string, unknown> | null) => prev ? { ...prev, total_xp: newXP } : prev)
+        window.dispatchEvent(new Event('xp-updated'))
+        const updatedProfile = { ...profile, total_xp: newXP }
+        await computeAndSaveBadges(user.id, updatedProfile)
       }
     } catch (err) { console.error('Checkin failed:', err) }
   }

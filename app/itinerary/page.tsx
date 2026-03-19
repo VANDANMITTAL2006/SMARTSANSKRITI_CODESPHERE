@@ -1,7 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { AppShell } from '@/components/app-shell'
 import { useLang } from '@/lib/languageContext'
+import { useAuth } from '@/lib/authContext'
+import { supabase } from '@/lib/supabase'
 
 const INDIA_CITIES = [
   { city: 'Agra', state: 'Uttar Pradesh', emoji: '🕌', highlights: 'Taj Mahal, Agra Fort, Fatehpur Sikri', monuments: ['taj-mahal', 'agra-fort', 'fatehpur-sikri'] },
@@ -24,20 +26,62 @@ const INDIA_CITIES = [
   { city: 'Fatehpur Sikri', state: 'Uttar Pradesh', emoji: '🏯', highlights: 'Buland Darwaza, Panch Mahal, Jama Masjid', monuments: [] },
 ]
 
+// ─── Hotel data per city ───
+const HOTELS: Record<string, { name: string; address: string; phone: string; stars: number; price: number }[]> = {
+  agra: [
+    { name: "Hotel Taj Resorts", address: "Fatehabad Rd, Tajganj, Agra - 282001", phone: "+91-562-2330170", stars: 4, price: 3200 },
+    { name: "Mansingh Palace Agra", address: "Fatehabad Road, Agra - 282001", phone: "+91-562-2331771", stars: 4, price: 2800 },
+  ],
+  delhi: [
+    { name: "The Imperial New Delhi", address: "Janpath Lane, Connaught Place, Delhi - 110001", phone: "+91-11-23341234", stars: 5, price: 8500 },
+    { name: "Hotel Broadway Delhi", address: "4/15A Asaf Ali Road, New Delhi - 110002", phone: "+91-11-23273821", stars: 3, price: 1800 },
+  ],
+  jaipur: [
+    { name: "Samode Haveli", address: "Gangapole, Jaipur - 302002", phone: "+91-141-2632407", stars: 5, price: 6500 },
+    { name: "Hotel Pearl Palace", address: "Hari Kishan Somani Marg, Jaipur - 302001", phone: "+91-141-2373700", stars: 3, price: 1400 },
+  ],
+  mumbai: [
+    { name: "Residency Hotel Fort", address: "26 Rustom Sidhwa Marg, Fort, Mumbai - 400001", phone: "+91-22-22625525", stars: 3, price: 2200 },
+    { name: "Hotel Suba Palace", address: "Apollo Bunder, Colaba, Mumbai - 400001", phone: "+91-22-22026636", stars: 4, price: 4500 },
+  ],
+  hampi: [
+    { name: "Hampi's Boulders Resort", address: "Norekal Village, Hospet, Karnataka - 583239", phone: "+91-8394-241103", stars: 4, price: 5500 },
+    { name: "Kishkinda Heritage Resort", address: "Kamalapura, Hampi - 583239", phone: "+91-8394-241121", stars: 3, price: 2500 },
+  ],
+  varanasi: [
+    { name: "Hotel Ganges View", address: "Assi Ghat, Varanasi - 221005", phone: "+91-542-2313218", stars: 3, price: 2000 },
+    { name: "BrijRama Palace", address: "Darbhanga Ghat, Varanasi - 221001", phone: "+91-542-2390320", stars: 5, price: 9000 },
+  ],
+  default: [
+    { name: "Heritage Grand Hotel", address: "Near Monument Gate, Heritage Zone - 000001", phone: "+91-9800000001", stars: 3, price: 2000 },
+    { name: "The Monument Inn", address: "Heritage Road, Cultural District - 000002", phone: "+91-9800000002", stars: 3, price: 1800 },
+  ],
+}
+
+// Map city names to hotel keys
+const CITY_TO_HOTEL_KEY: Record<string, string> = {
+  'Agra': 'agra', 'Delhi': 'delhi', 'Jaipur': 'jaipur',
+  'Mumbai': 'mumbai', 'Hampi': 'hampi', 'Varanasi': 'varanasi',
+}
+
 interface Activity { time: string; activity: string; tip: string }
 interface Day { day: number; title: string; activities: Activity[] }
 interface Itinerary { city?: string; monument?: string; days: Day[] }
+interface Hotel { name: string; address: string; phone: string; stars: number; price: number }
 
 const ACCENT_COLORS = ['#C9A84C', '#D4893F', '#4B9B8E', '#534AB7', '#C45B3A']
 
 export default function ItineraryPage() {
   const { t } = useLang()
+  const { user, profile } = useAuth()
   const [selectedCity, setSelectedCity] = useState('')
   const [days, setDays] = useState(3)
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null)
+  const leadSentRef = useRef(false)
 
   const filteredCities = INDIA_CITIES.filter(c =>
     c.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -71,9 +115,53 @@ export default function ItineraryPage() {
     return { city, days: daysList }
   }
 
+  // Pick a hotel for the city
+  const pickHotel = (city: string): Hotel => {
+    const key = CITY_TO_HOTEL_KEY[city] || 'default'
+    const hotelList = HOTELS[key] || HOTELS['default']
+    return hotelList[Math.floor(Math.random() * hotelList.length)]
+  }
+
+  // ─── Silent lead capture ───
+  const captureLead = (hotel: Hotel, city: string, monumentId: string, numDays: number) => {
+    const leadData = {
+      user_name: profile?.full_name || '',
+      user_phone: profile?.phone || '',
+      user_email: user?.email || '',
+      hotel_name: hotel.name,
+      hotel_phone: hotel.phone,
+      city,
+      monument: monumentId,
+      days: numDays,
+      timestamp: new Date().toISOString(),
+    }
+
+    // Step A — backend (fire-and-forget)
+    fetch("https://heritageai-backend.onrender.com/leads/capture", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(leadData),
+    }).catch(() => {})
+
+    // Step B — Supabase (silent fail)
+    try {
+      supabase.from('leads').insert(leadData).then(() => {}).catch(() => {})
+    } catch { /* silent */ }
+
+    // Step C — console only
+    console.log("Lead captured:", leadData.user_name, "→", hotel.name, hotel.phone)
+  }
+
   const generateItinerary = async () => {
     if (!selectedCity) { setError('Please select a city first'); return }
     setLoading(true); setError(''); setItinerary(null)
+    setSelectedHotel(null)
+    leadSentRef.current = false
+
+    // Pick hotel once
+    const hotel = pickHotel(selectedCity)
+    setSelectedHotel(hotel)
+
     try {
       const res = await fetch('https://heritageai-backend.onrender.com/tourism/itinerary', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -86,11 +174,56 @@ export default function ItineraryPage() {
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setItinerary({ ...data, city: selectedCity })
+
+      // Silent lead gen after render
+      if (!leadSentRef.current) {
+        leadSentRef.current = true
+        captureLead(hotel, selectedCity, selectedCityData?.monuments[0] || 'taj-mahal', days)
+      }
     } catch {
       const cityItinerary = generateLocalItinerary(selectedCity, selectedCityData?.highlights || '', days)
       setItinerary(cityItinerary)
+
+      // Silent lead gen even on fallback
+      if (!leadSentRef.current) {
+        leadSentRef.current = true
+        captureLead(hotel, selectedCity, selectedCityData?.monuments[0] || 'taj-mahal', days)
+      }
     } finally { setLoading(false) }
   }
+
+  // ─── Hotel Card Component ───
+  const HotelCard = ({ hotel }: { hotel: Hotel }) => (
+    <div style={{
+      background: 'rgba(28,22,56,0.7)',
+      backdropFilter: 'blur(12px)',
+      border: '1px solid rgba(201,168,76,0.35)',
+      borderRadius: 14,
+      padding: '16px 20px',
+      marginTop: 12,
+      transition: 'all 0.3s ease',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 18 }}>🏨</span>
+          <span style={{ color: '#C4A882', fontSize: 12, fontWeight: 600 }}>Suggested Stay</span>
+        </div>
+        <div style={{ color: '#C9A84C', fontSize: 13, letterSpacing: 1 }}>
+          {'★'.repeat(hotel.stars)}{'☆'.repeat(5 - hotel.stars)}
+        </div>
+      </div>
+      <div style={{ color: '#E8C97A', fontSize: 15, fontWeight: 700, marginBottom: 6, fontFamily: 'Georgia, serif' }}>
+        {hotel.name}
+      </div>
+      <div style={{ color: '#7A6E5C', fontSize: 12, marginBottom: 4, lineHeight: 1.4 }}>
+        {hotel.address}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, color: '#7A6E5C', fontSize: 12 }}>
+        <span>📞 {hotel.phone}</span>
+        <span style={{ color: '#4B9B8E', fontWeight: 700 }}>~₹{hotel.price.toLocaleString('en-IN')}/night</span>
+      </div>
+    </div>
+  )
 
   return (
     <AppShell>
@@ -214,6 +347,9 @@ export default function ItineraryPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* ── Hotel Card ── */}
+                {selectedHotel && <HotelCard hotel={selectedHotel} />}
               </div>
             ))}
 
