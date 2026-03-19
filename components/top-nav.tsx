@@ -10,7 +10,6 @@ import {
   HelpCircle, Trophy, Calendar, Search,
   MapPin, Menu, X, ChevronDown
 } from 'lucide-react'
-import SanskritiLogo from './SanskritiLogo'
 
 const NAV_ITEMS = [
   { href: '/', icon: Home, key: 'nav_home' },
@@ -92,12 +91,12 @@ export function TopNav() {
           transition: 'all 0.3s ease',
         }}
       >
-        {/* Logo */}
+        {/* Logo space */}
         <Link href="/" style={{
           display: 'flex', alignItems: 'center',
           gap: '8px', textDecoration: 'none', flexShrink: 0
         }}>
-          <SanskritiLogo size={38} />
+          {/* Logo removed per request */}
         </Link>
 
         {/* Desktop nav links */}

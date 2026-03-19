@@ -11,8 +11,8 @@ export default function HomePage() {
   return (
     <AppShell>
       <div className="bg-gradient-to-r from-[#1C1638] via-[#0F0B1E] to-[#1C1638] py-4 border-b border-[#C9A84C]/20">
-        <p className="text-center font-serif italic text-[#C9A84C] text-lg">
-          &ldquo;वसुधैव कुटुम्बकम्&rdquo; — {t('quote_1').replace(/"/g, '')}
+        <p className="text-center font-serif text-[#C9A84C] text-xl md:text-2xl font-bold tracking-wider uppercase">
+          Sanskriti AI
         </p>
       </div>
       <div className="p-4 lg:p-8 space-y-8 animate-fade-in">
