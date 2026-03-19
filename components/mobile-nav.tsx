@@ -13,7 +13,6 @@ import {
 
 const navItems = [
   { href: "/", icon: Home, label: "Home" },
-  { href: "/map", icon: Map, label: "Map" },
   { href: "/recognition", icon: Camera, label: "Scan" },
   { href: "/chat", icon: MessageCircle, label: "Chat" },
   { href: "/quiz", icon: HelpCircle, label: "Quiz" },

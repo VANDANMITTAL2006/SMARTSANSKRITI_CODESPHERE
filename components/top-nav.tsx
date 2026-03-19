@@ -14,7 +14,6 @@ import SanskritiLogo from './SanskritiLogo'
 
 const NAV_ITEMS = [
   { href: '/', icon: Home, key: 'nav_home' },
-  { href: '/map', icon: Map, key: 'nav_map' },
   { href: '/recognition', icon: Camera, key: 'nav_recognition' },
   { href: '/chat', icon: MessageCircle, key: 'nav_chatbot' },
   { href: '/quiz', icon: HelpCircle, key: 'nav_quiz' },

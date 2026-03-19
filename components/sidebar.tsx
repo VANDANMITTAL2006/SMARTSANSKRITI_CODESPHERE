@@ -12,7 +12,6 @@ import { useLang } from '@/lib/languageContext'
 
 const navItems = [
   { href: "/", icon: Home, label: "Home" },
-  { href: "/map", icon: Map, label: "Map" },
   { href: "/recognition", icon: Camera, label: "Recognition" },
   { href: "/chat", icon: MessageCircle, label: "Chatbot" },
   { href: "/sustainability", icon: Leaf, label: "Sustainability" },
