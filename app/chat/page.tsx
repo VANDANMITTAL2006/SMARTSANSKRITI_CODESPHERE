@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { AppShell } from "@/components/app-shell"
 import { Send, GraduationCap, Building, ChevronDown } from "lucide-react"
 import api from "@/lib/apiClient"
@@ -32,26 +32,66 @@ export default function ChatPage() {
   const [monumentId, setMonumentId] = useState("taj-mahal")
   const [monuments, setMonuments] = useState<Monument[]>([])
   const [listening, setListening] = useState(false)
+  const [speakingId, setSpeakingId] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastWasVoiceRef = useRef(false)
   const { toast, showToast, hideToast } = useToast()
   const { user } = useAuth()
 
-  // Browser TTS helper — speaks AI answers aloud
-  const speakText = (text: string) => {
+  // ── Robust Browser TTS ─────────────────────────────────
+  const speakText = useCallback((text: string, messageId?: number) => {
     if (!window.speechSynthesis) return
     window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-US'
-    utterance.rate = 0.9
-    utterance.pitch = 1.0
-    const voices = window.speechSynthesis.getVoices()
-    const voice = voices.find(v => v.lang.includes(lang === 'hi' ? 'hi' : 'en'))
-    if (voice) utterance.voice = voice
-    window.speechSynthesis.speak(utterance)
-  }
+    setSpeakingId(messageId ?? null)
 
-  // Vapi voice call hook
+    const doSpeak = () => {
+      const voices = window.speechSynthesis.getVoices()
+      const targetLang = lang === 'hi' ? 'hi' : 'en'
+      const voice = voices.find(v =>
+        v.lang.includes(targetLang) &&
+        (v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.lang.includes(targetLang))
+      ) || voices.find(v => v.lang.includes(targetLang))
+
+      // Split long text into sentences (Chrome stops after ~200 chars)
+      const sentences = text.match(/[^.!?]+[.!?]+/g) || [text]
+      let idx = 0
+
+      const speakNext = () => {
+        if (idx >= sentences.length) {
+          setSpeakingId(null)
+          return
+        }
+        const utterance = new SpeechSynthesisUtterance(sentences[idx].trim())
+        utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-US'
+        utterance.rate = 0.9
+        utterance.pitch = 1.0
+        if (voice) utterance.voice = voice
+        utterance.onend = () => { idx++; speakNext() }
+        utterance.onerror = () => setSpeakingId(null)
+        window.speechSynthesis.speak(utterance)
+      }
+      speakNext()
+    }
+
+    // Voices may not be loaded yet — wait for them
+    if (window.speechSynthesis.getVoices().length === 0) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.onvoiceschanged = null
+        doSpeak()
+      }
+      // Fallback: try anyway after 300ms
+      setTimeout(() => doSpeak(), 300)
+    } else {
+      doSpeak()
+    }
+  }, [lang])
+
+  const stopSpeaking = useCallback(() => {
+    window.speechSynthesis?.cancel()
+    setSpeakingId(null)
+  }, [])
+
+  // ── Vapi voice call hook ───────────────────────────────
   const {
     isCallActive, isListening: vapiListening, isSpeaking: vapiSpeaking, isLoading: vapiLoading,
     transcript, messages: vapiMessages,
@@ -89,6 +129,7 @@ export default function ChatPage() {
     }
   }, [vapiMessages])
 
+  // ── Send Message ───────────────────────────────────────
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading) return
     const userMsg: Message = { id: messages.length + 1, role: "user", content: text }
@@ -96,12 +137,15 @@ export default function ChatPage() {
     try {
       const res = await api.askChat(text, monumentId)
       const aiAnswer = res.data.answer
-      setMessages(prev => [...prev, { id: prev.length + 1, role: "assistant", content: aiAnswer }])
-      // Speak AI answer if the question was voice-initiated
+      const aiMsgId = messages.length + 2
+      setMessages(prev => [...prev, { id: aiMsgId, role: "assistant", content: aiAnswer }])
+
+      // ✨ Speak AI answer if the question was voice-initiated
       if (lastWasVoiceRef.current) {
-        speakText(aiAnswer)
+        speakText(aiAnswer, aiMsgId)
         lastWasVoiceRef.current = false
       }
+
       if (user) { saveChatMessage(user.id, 'user', text, monumentId).catch(() => null); saveChatMessage(user.id, 'assistant', aiAnswer, monumentId).catch(() => null) }
     } catch {
       setMessages(prev => [...prev, { id: prev.length + 1, role: "assistant", content: t('sorry_trouble') }])
@@ -110,6 +154,7 @@ export default function ChatPage() {
 
   const handleSend = () => sendMessage(input.trim())
 
+  // ── Voice Input (browser SpeechRecognition) ────────────
   const startVoice = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = window as any
@@ -121,13 +166,23 @@ export default function ChatPage() {
     recognition.onstart = () => { setListening(true); showToast(t('listening')) }
     recognition.onend = () => setListening(false)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (e: any) => { const transcript = e.results[0][0].transcript as string; setInput(transcript); lastWasVoiceRef.current = true; sendMessage(transcript) }
+    recognition.onresult = (e: any) => {
+      const spokenText = e.results[0][0].transcript as string
+      setInput(spokenText)
+      lastWasVoiceRef.current = true
+      sendMessage(spokenText)
+    }
     try { recognition.start() } catch { setListening(false) }
   }
 
+  // Cleanup TTS on unmount
+  useEffect(() => {
+    return () => { window.speechSynthesis?.cancel() }
+  }, [])
+
   return (
     <AppShell>
-      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}} @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}`}</style>
       <div className="flex flex-col h-[calc(100vh-96px)] lg:h-screen">
         <div className="flex items-center justify-between p-4 border-b border-[#C9A84C]/20 flex-wrap gap-2">
           <div className="flex items-center gap-3">
@@ -180,11 +235,30 @@ export default function ChatPage() {
             </p>
           )}
         </div>
+
+        {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-fade-in`}>
               <div className={`max-w-[80%] p-4 rounded-xl ${message.role === "user" ? "bg-[#D4893F]/20 border-l-4 border-[#D4893F] text-[#F5E6D3]" : "glass-card border-l-4 border-[#4B9B8E] text-[#F5E6D3]"}`}>
-                {message.role === "assistant" && (<div className="flex items-center gap-2 mb-2"><span className="text-lg">🏛️</span><span className="text-sm text-[#4B9B8E] font-medium">{t('heritage_guide')}</span></div>)}
+                {message.role === "assistant" && (
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">🏛️</span>
+                    <span className="text-sm text-[#4B9B8E] font-medium">{t('heritage_guide')}</span>
+                    {/* 🔊 Play / Stop button on every AI message */}
+                    <button
+                      onClick={() => speakingId === message.id ? stopSpeaking() : speakText(message.content, message.id)}
+                      style={{
+                        marginLeft: 'auto', background: 'none', border: 'none',
+                        cursor: 'pointer', fontSize: '16px', opacity: 0.7,
+                        animation: speakingId === message.id ? 'pulse 1s infinite' : 'none'
+                      }}
+                      title={speakingId === message.id ? 'Stop speaking' : 'Read aloud'}
+                    >
+                      {speakingId === message.id ? '⏹️' : '🔊'}
+                    </button>
+                  </div>
+                )}
                 <p className="leading-relaxed">{message.content}</p>
               </div>
             </div>
@@ -193,17 +267,21 @@ export default function ChatPage() {
             <div className="flex justify-start animate-fade-in">
               <div className="glass-card border-l-4 border-[#4B9B8E] text-[#F5E6D3] p-4 rounded-xl">
                 <div className="flex items-center gap-2 mb-2"><span className="text-lg">🏛️</span><span className="text-sm text-[#4B9B8E] font-medium">{t('heritage_guide')}</span></div>
-                <div className="flex gap-1 items-center h-5">{[0,1,2].map(i => (<div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#4B9B8E', animation: 'bounce 1.2s infinite', animationDelay: `${i * 0.2}s` }} />))}<style>{`@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}`}</style></div>
+                <div className="flex gap-1 items-center h-5">{[0,1,2].map(i => (<div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#4B9B8E', animation: 'bounce 1.2s infinite', animationDelay: `${i * 0.2}s` }} />))}</div>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Suggested questions */}
         <div className="px-4 py-2 flex gap-2 overflow-x-auto">
           {suggestedQuestions.map((question) => (
             <button key={question} onClick={() => setInput(question)} className="flex-shrink-0 px-3 py-1 glass-card rounded-full text-sm text-[#C4A882] hover:text-[#C9A84C] hover:border-[#C9A84C] transition-colors">{question}</button>
           ))}
         </div>
+
+        {/* Input bar */}
         <div className="p-4 border-t border-[#C9A84C]/20">
           {/* Active voice call status bar */}
           {isCallActive && (
