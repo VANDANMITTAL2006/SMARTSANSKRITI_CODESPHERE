@@ -66,77 +66,39 @@ const AuthContext = createContext<AuthContextType>({
 })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [user, setUser] = useState<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
-  // Use ref so event handlers always have latest user
-  const userRef = useRef<User | null>(null)
-  useEffect(() => { userRef.current = user }, [user])
-
-  // Fetch profile from Supabase
-  const fetchProfile = useCallback(async (uid?: string) => {
-    const id = uid || userRef.current?.id
-    if (!id) {
-      console.warn('[fetchProfile] No user id available, skipping')
-      return
-    }
+  const fetchProfile = async (userId: string) => {
     try {
-      console.log('[fetchProfile] Fetching profile for:', id)
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('id', id)
+        .eq('id', userId)
         .single()
-      if (error) {
-        console.error('[fetchProfile] Supabase error:', error.message, error.details, error.hint)
-        return
-      }
-      console.log('[fetchProfile] ✅ Got profile, total_xp =', data?.total_xp)
       if (data) setProfile(data)
     } catch (err) {
-      console.error('[fetchProfile] Exception:', err)
+      console.error('fetchProfile error:', err)
     }
-  }, [])
+  }
 
-  // Safe setProfile that supports functional updates
-  const safeSetProfile = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (updater: any) => {
-      if (typeof updater === 'function') {
-        setProfile(prev => updater(prev))
-      } else {
-        setProfile(updater)
-      }
-    }, [])
-
-  // ─── Initial session + auth state changes ───
+  // CRITICAL: getSession on mount handles page refresh
+  // Without this, profile never loads on refresh
   useEffect(() => {
-    let mounted = true
-
-    const timeout = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('Auth session check timed out')
-        setLoading(false)
-      }
-    }, 5000)
-
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!mounted) return
-      console.log('[AuthProvider] getSession →', session?.user?.id ?? 'no session')
-      setUser(session?.user ?? null)
       if (session?.user) {
-        console.log('[AuthProvider] Calling fetchProfile from getSession')
+        setUser(session.user)
         fetchProfile(session.user.id)
       }
       setLoading(false)
-    }).catch(() => {
-      if (mounted) setLoading(false)
     })
 
+    // This handles login/logout/token refresh
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        if (!mounted) return
         setUser(session?.user ?? null)
         if (session?.user) {
           await fetchProfile(session.user.id)
@@ -147,34 +109,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     )
 
-    return () => {
-      mounted = false
-      clearTimeout(timeout)
-      subscription.unsubscribe()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => subscription.unsubscribe()
   }, [])
 
-  // ─── Listen for 'xp-updated' + 'focus' → re-fetch profile ───
+  // Re-fetch when window gets focus (tab switch back)
   useEffect(() => {
     const handler = () => {
-      const id = userRef.current?.id
-      console.log('[AuthProvider] xp-updated/focus event → refetching for:', id)
-      if (id) fetchProfile(id)
+      if (user?.id) fetchProfile(user.id)
+    }
+    window.addEventListener('focus', handler)
+    return () => window.removeEventListener('focus', handler)
+  }, [user])
+
+  // Re-fetch when xp-updated event fires from any page
+  useEffect(() => {
+    const handler = () => {
+      if (user?.id) fetchProfile(user.id)
     }
     window.addEventListener('xp-updated', handler)
-    window.addEventListener('focus', handler)
-    return () => {
-      window.removeEventListener('xp-updated', handler)
-      window.removeEventListener('focus', handler)
-    }
-  }, [fetchProfile])
+    return () => window.removeEventListener('xp-updated', handler)
+  }, [user])
+
+  // Safe setProfile that supports functional updates
+  const safeSetProfile = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (updater: any) => {
+      if (typeof updater === 'function') {
+        setProfile((prev: Profile | null) => updater(prev))
+      } else {
+        setProfile(updater)
+      }
+    }, [])
 
   return (
     <AuthContext.Provider value={{
       user, profile, loading,
       setProfile: safeSetProfile,
-      refreshProfile: fetchProfile,
+      refreshProfile: (uid?: string) => user?.id ? fetchProfile(uid || user.id) : Promise.resolve(),
       signIn, signOut, signUp
     }}>
       {children}
