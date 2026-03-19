@@ -32,17 +32,17 @@ export default function ChatPage() {
   const [monumentId, setMonumentId] = useState("taj-mahal")
   const [monuments, setMonuments] = useState<Monument[]>([])
   const [listening, setListening] = useState(false)
-  const [speakingId, setSpeakingId] = useState<number | null>(null)
+  const [isSpeaking, setIsSpeaking] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastWasVoiceRef = useRef(false)
   const { toast, showToast, hideToast } = useToast()
   const { user } = useAuth()
 
   // ── Robust Browser TTS ─────────────────────────────────
-  const speakText = useCallback((text: string, messageId?: number) => {
+  const speakText = useCallback((text: string) => {
     if (!window.speechSynthesis) return
     window.speechSynthesis.cancel()
-    setSpeakingId(messageId ?? null)
+    setIsSpeaking(true)
 
     const doSpeak = () => {
       const voices = window.speechSynthesis.getVoices()
@@ -52,44 +52,33 @@ export default function ChatPage() {
         (v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.lang.includes(targetLang))
       ) || voices.find(v => v.lang.includes(targetLang))
 
-      // Split long text into sentences (Chrome stops after ~200 chars)
       const sentences = text.match(/[^.!?]+[.!?]+/g) || [text]
       let idx = 0
 
       const speakNext = () => {
-        if (idx >= sentences.length) {
-          setSpeakingId(null)
-          return
-        }
+        if (idx >= sentences.length) { setIsSpeaking(false); return }
         const utterance = new SpeechSynthesisUtterance(sentences[idx].trim())
         utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-US'
         utterance.rate = 0.9
         utterance.pitch = 1.0
         if (voice) utterance.voice = voice
         utterance.onend = () => { idx++; speakNext() }
-        utterance.onerror = () => setSpeakingId(null)
+        utterance.onerror = () => setIsSpeaking(false)
         window.speechSynthesis.speak(utterance)
       }
       speakNext()
     }
 
-    // Voices may not be loaded yet — wait for them
     if (window.speechSynthesis.getVoices().length === 0) {
       window.speechSynthesis.onvoiceschanged = () => {
         window.speechSynthesis.onvoiceschanged = null
         doSpeak()
       }
-      // Fallback: try anyway after 300ms
       setTimeout(() => doSpeak(), 300)
     } else {
       doSpeak()
     }
   }, [lang])
-
-  const stopSpeaking = useCallback(() => {
-    window.speechSynthesis?.cancel()
-    setSpeakingId(null)
-  }, [])
 
   // ── Vapi voice call hook ───────────────────────────────
   const {
@@ -137,13 +126,14 @@ export default function ChatPage() {
     try {
       const res = await api.askChat(text, monumentId)
       const aiAnswer = res.data.answer
-      const aiMsgId = messages.length + 2
-      setMessages(prev => [...prev, { id: aiMsgId, role: "assistant", content: aiAnswer }])
 
-      // ✨ Speak AI answer if the question was voice-initiated
+      // ✨ Voice in → voice out ONLY (no text bubble)
       if (lastWasVoiceRef.current) {
-        speakText(aiAnswer, aiMsgId)
+        speakText(aiAnswer)
         lastWasVoiceRef.current = false
+      } else {
+        // Text in → text out only
+        setMessages(prev => [...prev, { id: prev.length + 1, role: "assistant", content: aiAnswer }])
       }
 
       if (user) { saveChatMessage(user.id, 'user', text, monumentId).catch(() => null); saveChatMessage(user.id, 'assistant', aiAnswer, monumentId).catch(() => null) }
@@ -245,18 +235,6 @@ export default function ChatPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-lg">🏛️</span>
                     <span className="text-sm text-[#4B9B8E] font-medium">{t('heritage_guide')}</span>
-                    {/* 🔊 Play / Stop button on every AI message */}
-                    <button
-                      onClick={() => speakingId === message.id ? stopSpeaking() : speakText(message.content, message.id)}
-                      style={{
-                        marginLeft: 'auto', background: 'none', border: 'none',
-                        cursor: 'pointer', fontSize: '16px', opacity: 0.7,
-                        animation: speakingId === message.id ? 'pulse 1s infinite' : 'none'
-                      }}
-                      title={speakingId === message.id ? 'Stop speaking' : 'Read aloud'}
-                    >
-                      {speakingId === message.id ? '⏹️' : '🔊'}
-                    </button>
                   </div>
                 )}
                 <p className="leading-relaxed">{message.content}</p>
