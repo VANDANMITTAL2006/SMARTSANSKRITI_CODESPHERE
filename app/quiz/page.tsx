@@ -111,10 +111,9 @@ export default function QuizPage() {
         if (user) {
           const newXP = await addXP(user.id, 10, 'QUIZ_CORRECT')
           setProfile((prev: Record<string, unknown> | null) => prev ? { ...prev, total_xp: newXP } : prev)
-          await addQuizScore(user.id, 10)
+          const newQuizScores = await addQuizScore(user.id, 10)
+          await computeAndSaveBadges(user.id, { total_xp: newXP, quiz_scores: newQuizScores })
           window.dispatchEvent(new Event('xp-updated'))
-          const updatedProfile = { ...profile, total_xp: newXP }
-          await computeAndSaveBadges(user.id, updatedProfile)
         }
       } catch { /* silent */ }
     }

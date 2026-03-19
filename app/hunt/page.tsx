@@ -303,7 +303,7 @@ const HuntMap = dynamic(() => Promise.resolve(function HuntMapInner({
       setTimeout(() => { mapRef.current?.invalidateSize() }, 200)
     }
     // Pan to new center when active clue changes
-    mapRef.current.panTo([riddles[activeClueIdx]?.target_lat ?? centerLat, riddles[activeClueIdx]?.target_lng ?? centerLng])
+    mapRef.current?.panTo([riddles[activeClueIdx]?.target_lat ?? centerLat, riddles[activeClueIdx]?.target_lng ?? centerLng])
 
     const map = mapRef.current!
     const newMarkers: L.Layer[] = []
@@ -640,8 +640,9 @@ export default function HuntPage() {
       addXP(user.id, xpAmount, 'HUNT_STEP_DONE')
         .then(newXP => {
           setProfile((prev: any) => prev ? { ...prev, total_xp: newXP } : prev)
-          window.dispatchEvent(new Event('xp-updated'))
-          computeAndSaveBadges(user.id, { ...profile, total_xp: newXP }).catch(() => {})
+          computeAndSaveBadges(user.id, { total_xp: newXP }).then(() => {
+            window.dispatchEvent(new Event('xp-updated'))
+          }).catch(() => {})
         })
         .catch(e => console.error('XP award failed:', e))
     }

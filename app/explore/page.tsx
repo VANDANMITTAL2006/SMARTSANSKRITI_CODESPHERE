@@ -370,9 +370,8 @@ export default function ExplorePage() {
       try {
         const newXP = await addXP(user.id, z.xp, 'ZONE_EXPLORE')
         setProfile((prev: any) => ({ ...prev, total_xp: newXP }))
+        await computeAndSaveBadges(user.id, { total_xp: newXP })
         window.dispatchEvent(new Event('xp-updated'))
-        const updatedProfile = { ...profile, total_xp: newXP }
-        await computeAndSaveBadges(user.id, updatedProfile)
       } catch (err) { console.warn('XP award failed:', err) }
     }
     setXpEarned(z.xp)

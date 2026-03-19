@@ -90,17 +90,25 @@ export default function RecognitionPage() {
     previewReader.readAsDataURL(file)
 
     const compressImage = (f: File): Promise<string> => {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Image processing timeout')), 10000)
         const canvas = document.createElement('canvas')
         const img = new Image()
         img.onload = () => {
-          const maxW = 600
-          const scale = Math.min(1, maxW / img.width)
-          canvas.width = img.width * scale
-          canvas.height = img.height * scale
-          const ctx = canvas.getContext('2d')!
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-          resolve(canvas.toDataURL('image/jpeg', 0.6).split(',')[1])
+          clearTimeout(timeout)
+          try {
+            const maxW = 600
+            const scale = Math.min(1, maxW / img.width)
+            canvas.width = img.width * scale
+            canvas.height = img.height * scale
+            const ctx = canvas.getContext('2d')!
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+            resolve(canvas.toDataURL('image/jpeg', 0.6).split(',')[1])
+          } catch (e) { reject(e) }
+        }
+        img.onerror = () => {
+          clearTimeout(timeout)
+          reject(new Error('Invalid image format'))
         }
         img.src = URL.createObjectURL(f)
       })
@@ -114,6 +122,11 @@ export default function RecognitionPage() {
       showToast('⚡ Instant result!')
       return
     }
+
+    // Set a timeout to notify user if backend is spinning up
+    const slowWarningTimer = setTimeout(() => {
+      showToast('⏳ Waking up servers... this can take up to a minute.')
+    }, 6000)
 
     try {
       const base64 = await compressImage(file)
@@ -133,10 +146,9 @@ export default function RecognitionPage() {
           if (user) {
             const newXP = await addXP(user.id, 25, 'MONUMENT_VISIT')
             setProfile((prev: Record<string, unknown> | null) => prev ? { ...prev, total_xp: newXP } : prev)
-            await addMonumentVisited(user.id, res.data.monument_name)
+            const newVisited = await addMonumentVisited(user.id, res.data.monument_name)
+            await computeAndSaveBadges(user.id, { total_xp: newXP, monuments_visited: newVisited })
             window.dispatchEvent(new Event('xp-updated'))
-            const updatedProfile = { ...profile, total_xp: newXP, monuments_visited: [...(profile?.monuments_visited || []), res.data.monument_name] }
-            await computeAndSaveBadges(user.id, updatedProfile)
           }
         } catch (err) { console.warn('XP award failed:', err) }
 
@@ -153,9 +165,10 @@ export default function RecognitionPage() {
       setResult({
         monument_name: 'Unknown',
         is_unknown: true,
-        brief_description: 'Could not identify. Try a clearer image.'
+        brief_description: 'Could not identify. It might not be a recognized monument or the image was unclear.'
       })
     } finally {
+      clearTimeout(slowWarningTimer)
       setLoading(false)
     }
   }

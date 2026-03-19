@@ -24,7 +24,6 @@ const featuresRow1 = [
 ]
 
 const featuresRow2 = [
-  { icon: "🧠", titleKey: "knowledge_quiz", descKey: "knowledge_quiz_d", href: "/quiz", ctaKey: "take_quiz" },
   { icon: "🗓️", titleKey: "festival_calendar", descKey: "festival_calendar_d", href: "/festivals", ctaKey: "view_calendar" },
 ]
 

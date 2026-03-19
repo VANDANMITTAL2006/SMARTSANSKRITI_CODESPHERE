@@ -32,7 +32,7 @@ export async function signUp(
           language: 'en',
           total_xp: 0,
           monuments_visited: [],
-          quiz_scores: {},
+          quiz_scores: [],
           chat_history: []
         }, { onConflict: 'id' })
       
@@ -74,7 +74,7 @@ export async function signIn(email: string, password: string) {
         language: 'en',
         total_xp: 0,
         monuments_visited: [],
-        quiz_scores: {},
+        quiz_scores: [],
         chat_history: []
       }, { onConflict: 'id' })
     }
@@ -174,7 +174,7 @@ export async function addXP(
 export async function addMonumentVisited(
   userId: string,
   monumentName: string
-): Promise<void> {
+): Promise<string[]> {
   try {
     const { data: current } = await supabase
       .from('user_profiles')
@@ -183,24 +183,28 @@ export async function addMonumentVisited(
       .single()
 
     const existing: string[] = current?.monuments_visited ?? []
-    if (existing.includes(monumentName)) return
+    if (existing.includes(monumentName)) return existing
 
+    const updated = [...existing, monumentName];
     await supabase
       .from('user_profiles')
       .update({
-        monuments_visited: [...existing, monumentName],
+        monuments_visited: updated,
         updated_at: new Date().toISOString()
       })
       .eq('id', userId)
+      
+    return updated;
   } catch (err) {
     console.error('addMonumentVisited failed:', err)
+    return []
   }
 }
 
 export async function addQuizScore(
   userId: string,
   score: number
-): Promise<void> {
+): Promise<number[]> {
   try {
     const { data: current } = await supabase
       .from('user_profiles')
@@ -208,32 +212,56 @@ export async function addQuizScore(
       .eq('id', userId)
       .single()
 
-    const existing: number[] = current?.quiz_scores ?? []
+    let existing = current?.quiz_scores
+    if (!Array.isArray(existing)) {
+      existing = existing ? Object.values(existing) : []
+    }
+    
+    const updated = [...existing, score];
 
     await supabase
       .from('user_profiles')
       .update({
-        quiz_scores: [...existing, score],
+        quiz_scores: updated,
         updated_at: new Date().toISOString()
       })
       .eq('id', userId)
+      
+    return updated;
   } catch (err) {
     console.error('addQuizScore failed:', err)
+    return []
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function computeAndSaveBadges(
   userId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  profile: any
+  updatedState?: {
+    total_xp?: number;
+    monuments_visited?: string[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    quiz_scores?: any;
+  }
 ): Promise<string[]> {
   try {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (!profile) return []
+
     const earned: string[] = []
-    const xp = profile.total_xp ?? 0
-    const visited = profile.monuments_visited?.length ?? 0
-    const quizTotal = (profile.quiz_scores ?? [])
-      .reduce((a: number, b: number) => a + b, 0)
+    
+    // Merge DB state with explicitly passed updated state to prevent read-replica lag race conditions
+    const xp = updatedState?.total_xp ?? profile.total_xp ?? 0
+    const visitedList = updatedState?.monuments_visited ?? profile.monuments_visited ?? []
+    const visited = visitedList.length
+    
+    const rawQuiz = updatedState?.quiz_scores ?? profile.quiz_scores ?? {}
+    const quizValues: number[] = Array.isArray(rawQuiz) ? rawQuiz : Object.values(rawQuiz as Record<string, number>)
+    const quizTotal = quizValues.reduce((a: number, b: number) => a + b, 0)
 
     if (visited >= 1)     earned.push('first_scan')
     if (quizTotal >= 100) earned.push('quiz_master')
@@ -241,10 +269,18 @@ export async function computeAndSaveBadges(
     if (xp >= 500)        earned.push('hunter')
     if (xp >= 2000)       earned.push('legend')
 
-    await supabase
+    // Avoid unnecessary DB writes if badges haven't changed
+    const currentBadges = profile.badges || []
+    if (earned.length === currentBadges.length && earned.every(b => currentBadges.includes(b))) {
+      return earned
+    }
+
+    const { error } = await supabase
       .from('user_profiles')
       .update({ badges: earned, updated_at: new Date().toISOString() })
       .eq('id', userId)
+
+    if (error) console.error('computeAndSaveBadges error:', error)
 
     return earned
   } catch (err) {
